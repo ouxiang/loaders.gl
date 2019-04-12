@@ -7,8 +7,10 @@ export default function createWorker(loader) {
     return;
   }
 
-  self.onmessage = evt => {
-    const {arraybuffer, opts} = evt.data;
+  self.onmessage = event => {
+    console.log(event.type);
+    const {arraybuffer, opts} = event.data;
+    // console.log(JSON.stringify(event, null, 2).slice(200)); // eslint-disable-line
     try {
       let data;
       let parser;

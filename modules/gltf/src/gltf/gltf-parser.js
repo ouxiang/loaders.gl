@@ -238,6 +238,8 @@ export default class GLTFParser {
     // Extension will be processed, delete it
     delete primitive.extensions[KHR_DRACO_MESH_COMPRESSION];
 
+    debugger;
+
     const buffer = this._getBufferViewArray(compressedMesh.bufferView);
     const decodedData = options.DracoLoader.parseSync(buffer);
     primitive.attributes = getGLTFAccessors(decodedData.attributes);
