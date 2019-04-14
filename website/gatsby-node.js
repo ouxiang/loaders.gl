@@ -63,7 +63,11 @@ callbacks.onCreateWebpackConfig = function onCreateWebpackConfigOverride(opts) {
     module: {
       rules: [
         // Omit the default rule where test === '\.jsx?$'
-        newJSRule
+        newJSRule,
+        {
+          test: /gl/,
+          use: loaders.null()
+        }
       ]
     },
     node: {

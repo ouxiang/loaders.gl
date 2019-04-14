@@ -33,7 +33,7 @@ module.exports = {
   PROJECT_URL: 'https://github.com/uber-web/loaders.gl',
   PROJECT_DESC: 'Framework agnostic loaders for visualization assets',
   WEBSITE_PATH: '/website/',
-  PATH_PREFIX: '/loaders.gl',
+  PATH_PREFIX: '/loaders.gl/',
 
   FOOTER_LOGO: '',
 
@@ -66,11 +66,11 @@ module.exports = {
   ADDITIONAL_LINKS: [],
 
   EXAMPLES: [
-    // {
-    //   title: 'GLTF',
-    //   path: 'examples/gltf',
-    //   image: 'images/example-gltf.jpg'
-    // }
+    {
+      title: 'GLTF',
+      path: 'examples/gltf',
+      image: 'images/example-gltf.jpg'
+    }
   ],
 
   // Avoids duplicate conflicting inputs when importing from examples folders
