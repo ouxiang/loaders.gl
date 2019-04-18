@@ -13,10 +13,10 @@ import {parse3DTileTablesHeaderSync, parse3DTileTablesSync} from './helpers/pars
 
 // Reference code
 // https://github.com/AnalyticalGraphicsInc/cesium/blob/master/Source/Scene/PointCloud.js#L254
-export default function parsePointCloud3DTile(tile, arrayBuffer, byteOffset, options) {
-  byteOffset = parse3DTileHeaderSync(tile, arrayBuffer, byteOffset, options);
-  byteOffset = parse3DTileTablesHeaderSync(tile, arrayBuffer, byteOffset, options);
-  byteOffset = parse3DTileTablesSync(tile, arrayBuffer, byteOffset, options);
+export default function parsePointCloud3DTile(tile, dataView, byteOffset, options) {
+  byteOffset = parse3DTileHeaderSync(tile, dataView, byteOffset, options);
+  byteOffset = parse3DTileTablesHeaderSync(tile, dataView, byteOffset, options);
+  byteOffset = parse3DTileTablesSync(tile, dataView, byteOffset, options);
 
   extractPointCloud(tile);
 
@@ -48,6 +48,7 @@ function extractPointCloud(tile) {
   tile.isRGB565 = false;
   tile.isOctEncoded16P = false;
 }
+
 /*
   const batchTable = new Tile3DBatchTable(tile);
 

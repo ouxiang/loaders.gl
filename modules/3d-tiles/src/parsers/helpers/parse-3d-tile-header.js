@@ -7,16 +7,14 @@ Populates
   version,
   byteLength
  */
-export function parse3DTileHeaderSync(tile, arrayBuffer, byteOffset = 0) {
-  const view = new DataView(arrayBuffer);
-
-  tile.magic = view.getUint32(byteOffset, true);
+export function parse3DTileHeaderSync(tile, dataView, byteOffset = 0) {
+  tile.magic = dataView.getUint32(byteOffset, true);
   byteOffset += SIZEOF_UINT32;
 
-  tile.version = view.getUint32(byteOffset, true);
+  tile.version = dataView.getUint32(byteOffset, true);
   byteOffset += SIZEOF_UINT32;
 
-  tile.byteLength = view.getUint32(byteOffset, true);
+  tile.byteLength = dataView.getUint32(byteOffset, true);
   byteOffset += SIZEOF_UINT32;
 
   // TODO - move version check into each tile parser?

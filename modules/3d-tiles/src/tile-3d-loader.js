@@ -9,6 +9,7 @@ export default {
 };
 
 function parseSync(arrayBuffer, options, url, loader) {
+  const dataView = new DataView(arrayBuffer);
   const byteOffset = 0;
-  return parse3DTileSync(arrayBuffer, byteOffset, options);
+  return parse3DTileSync(dataView, byteOffset, options);
 }

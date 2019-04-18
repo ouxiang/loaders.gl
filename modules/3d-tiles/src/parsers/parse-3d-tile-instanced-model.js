@@ -8,21 +8,19 @@ import {parse3DTileGLTFViewSync} from './helpers/parse-3d-tile-gltf-view';
 
 // Reference code:
 // https://github.com/AnalyticalGraphicsInc/cesium/blob/master/Source/Scene/Instanced3DModel3DTileContent.js#L190
-export default function parseInstancedModel3DTileSync(tile, arrayBuffer, byteOffset, options) {
-  byteOffset = parse3DTileHeaderSync(tile, arrayBuffer, byteOffset, options);
+export default function parseInstancedModel3DTileSync(tile, dataView, byteOffset, options) {
+  byteOffset = parse3DTileHeaderSync(tile, dataView, byteOffset, options);
   if (tile.version !== 1) {
     throw new Error(`Instanced 3D Model version ${tile.version} is not supported`);
   }
 
-  byteOffset = parse3DTileTablesHeaderSync(tile, arrayBuffer, byteOffset, options);
+  byteOffset = parse3DTileTablesHeaderSync(tile, dataView, byteOffset, options);
 
-  const view = new DataView(arrayBuffer);
-
-  tile.gltfFormat = view.getUint32(byteOffset, true);
+  tile.gltfFormat = dataView.getUint32(byteOffset, true);
   byteOffset += 4;
 
   // PARSE FEATURE TABLE
-  byteOffset = parse3DTileTablesSync(tile, arrayBuffer, byteOffset, options);
+  byteOffset = parse3DTileTablesSync(tile, dataView, byteOffset, options);
 
   byteOffset = parse3DTileGLTFViewSync(tile, byteOffset);
 
