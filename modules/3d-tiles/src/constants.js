@@ -27,6 +27,7 @@ export const TILE3D_CONTENT_STATE = {
   EXPIRED: 4, // Is expired and will be unloaded once new content is loaded.
   FAILED: 5 // Request failed.
 };
+
 export const TILE3D_OPTIMIZATION_HINT = {
   NOT_COMPUTED: -1,
   USE_OPTIMIZATION: 1,
@@ -43,3 +44,4 @@ export const TILE3D_REFINE = {
   ADD: 0, // Render tile and, if screen space error exceeded, also refine to its children.
   REPLACE: 1 // Render tile or, if screen space error exceeded, refine to its descendants instead.
 };
+// SUBSET OF GL CONSTANTS - CAN BE USED DIRECTLY WITH WEBGL
