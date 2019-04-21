@@ -474,10 +474,10 @@ export default class Tileset3D {
    */
   get clippingPlanes() {
     return this._clippingPlanes;
-  },
+  }
   set clippingPlanes(value) {
     ClippingPlaneCollection.setOwner(value, this, '_clippingPlanes');
-  },
+  }
 
   /**
    * Gets the tileset's properties dictionary object, which contains metadata about per-feature properties.
@@ -700,7 +700,7 @@ export default class Tileset3D {
    */
   get maximumMemoryUsage() {
     return this._maximumMemoryUsage;
-  },
+  }
   set maximumMemoryUsage(value) {
     Check.typeOf.number.greaterThanOrEquals('value', value, 0);
     this._maximumMemoryUsage = value;
@@ -794,7 +794,6 @@ export default class Tileset3D {
   get timeSinceLoad() {
     return this._timeSinceLoad;
   }
-},
 
   /**
    * The total amount of GPU memory in bytes used by the tileset. This value is estimated from
@@ -812,7 +811,6 @@ export default class Tileset3D {
     var statistics = this._statistics;
     return statistics.texturesByteLength + statistics.geometryByteLength + statistics.batchTableByteLength;
   }
-  },
 
   /**
    * @private
@@ -822,14 +820,13 @@ export default class Tileset3D {
       return Matrix4.IDENTITY;
     }
 
-      if (this._clippingPlanesOriginMatrixDirty) {
-        Matrix4.multiply(this.root.computedTransform, this._initialClippingPlanesOriginMatrix, this._clippingPlanesOriginMatrix);
-        this._clippingPlanesOriginMatrixDirty = false;
-      }
-
-      return this._clippingPlanesOriginMatrix;
+    if (this._clippingPlanesOriginMatrixDirty) {
+      Matrix4.multiply(this.root.computedTransform, this._initialClippingPlanesOriginMatrix, this._clippingPlanesOriginMatrix);
+      this._clippingPlanesOriginMatrixDirty = false;
     }
-  },
+
+    return this._clippingPlanesOriginMatrix;
+  }
 
   /**
    * @private
@@ -837,7 +834,6 @@ export default class Tileset3D {
   get styleEngine() {
     return this._styleEngine;
   }
-},
 
   /**
    * @private
@@ -845,7 +841,6 @@ export default class Tileset3D {
   get statistics() {
     return this._statistics;
   }
-},
 
   /**
    * Determines whether terrain, 3D Tiles or both will be classified by this tileset.
@@ -877,7 +872,6 @@ export default class Tileset3D {
   get classificationType() {
     return this._classificationType;
   }
-},
 
   /**
    * Gets an ellipsoid describing the shape of the globe.
@@ -890,7 +884,6 @@ export default class Tileset3D {
   get ellipsoid() {
     return this._ellipsoid;
   }
-},
 
   /**
    * Returns the <code>extras</code> property at the top-level of the tileset JSON, which contains application specific metadata.
@@ -909,14 +902,12 @@ export default class Tileset3D {
     //>>includeStart('debug', pragmas.debug);
     if (!this.ready) {
       throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-      }
-      //>>includeEnd('debug');
-
-      return this._extras;
     }
-  },
+    //>>includeEnd('debug');
 
-});
+    return this._extras;
+  }
+}
 
 /**
  * Provides a hook to override the method used to request the tileset json

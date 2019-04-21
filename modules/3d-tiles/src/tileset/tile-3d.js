@@ -1,3 +1,6 @@
+// import {TILE3D_REFINEMENT, TILE3D_OPTIMIZATION_HINT} from '../constants';
+
+/* eslint-disable */
 const scratchJulianDate = new JulianDate();
 const scratchCommandList = [];
 const scratchToTileCenter = new Cartesian3();
@@ -110,7 +113,7 @@ export default class Tile3D {
   // @memberof Tile3D.prototype
   // @type {Boolean}
   get contentReady() {
-    return this._contentState === Tile3DContentState.READY;
+    return this._contentState === TILE3D_CONTENT_STATE.READY;
   }
 
   // Determines if the tile's content has not be requested. <code>true</code> if tile's
@@ -118,7 +121,7 @@ export default class Tile3D {
   // @memberof Tile3D.prototype
   // @type {Boolean}
   get contentUnloaded() {
-    return this._contentState === Tile3DContentState.UNLOADED;
+    return this._contentState === TILE3D_CONTENT_STATE.UNLOADED;
   }
 
   // Determines if the tile's content is expired. <code>true</code> if tile's
@@ -126,7 +129,7 @@ export default class Tile3D {
   // @memberof Tile3D.prototype
   // @type {Boolean}
   get contentExpired() {
-    return this._contentState === Tile3DContentState.EXPIRED;
+    return this._contentState === TILE3D_CONTENT_STATE.EXPIRED;
   }
 
   // Determines if the tile's content failed to load.  <code>true</code> if the tile's
@@ -134,7 +137,7 @@ export default class Tile3D {
   // @memberof Tile3D.prototype
   // @type {Boolean}
   get contentFailed() {
-    return this._contentState === Tile3DContentState.FAILED;
+    return this._contentState === TILE3D_CONTENT_STATE.FAILED;
   }
 
   // Gets the promise that will be resolved when the tile's content is ready to process.
@@ -221,7 +224,7 @@ export default class Tile3D {
     if (defined(this.expireDate) && this.contentReady && !this.hasEmptyContent) {
       const now = JulianDate.now(scratchJulianDate);
       if (JulianDate.lessThan(this.expireDate, now)) {
-        this._contentState = Tile3DContentState.EXPIRED;
+        this._contentState = TILE3D_CONTENT_STATE.EXPIRED;
         this._expiredContent = this._content;
       }
     }
@@ -266,7 +269,7 @@ export default class Tile3D {
     }
 
     const contentState = this._contentState;
-    this._contentState = Tile3DContentState.LOADING;
+    this._contentState = TILE3D_CONTENT_STATE.LOADING;
     this._contentReadyToProcessPromise = when.defer();
     this._contentReadyPromise = when.defer();
 
@@ -298,7 +301,7 @@ export default class Tile3D {
       }
 
       that._content = content;
-      that._contentState = Tile3DContentState.PROCESSING;
+      that._contentState = TILE3D_CONTENT_STATE.PROCESSING;
       that._contentReadyToProcessPromise.resolve(content);
 
       return content.readyPromise.then(function(content) {
@@ -313,7 +316,7 @@ export default class Tile3D {
         that._selectedFrame = 0;
         that.lastStyleTime = 0;
 
-        that._contentState = Tile3DContentState.READY;
+        that._contentState = TILE3D_CONTENT_STATE.READY;
         that._contentReadyPromise.resolve(content);
       });
     }).otherwise(function(error) {
@@ -337,7 +340,7 @@ export default class Tile3D {
     }
 
     this._content = this._content && this._content.destroy();
-    this._contentState = Tile3DContentState.UNLOADED;
+    this._contentState = TILE3D_CONTENT_STATE.UNLOADED;
     this._contentReadyToProcessPromise = undefined;
     this._contentReadyPromise = undefined;
 
@@ -562,7 +565,7 @@ export default class Tile3D {
     this._boundingVolume = this.createBoundingVolume(header.boundingVolume, computedTransform);
     this._boundingVolume2D = undefined;
 
-    const contentBoundingVolume;
+    let contentBoundingVolume;
 
     if (defined(contentHeader) && defined(contentHeader.boundingVolume)) {
       // Non-leaf tiles may have a content bounding-volume, which is a tight-fit bounding volume
@@ -575,7 +578,7 @@ export default class Tile3D {
     this._contentBoundingVolume = contentBoundingVolume;
     this._contentBoundingVolume2D = undefined;
 
-    const viewerRequestVolume;
+    let viewerRequestVolume;
     if (defined(header.viewerRequestVolume)) {
       viewerRequestVolume = this.createBoundingVolume(header.viewerRequestVolume, computedTransform);
     }
@@ -592,7 +595,7 @@ export default class Tile3D {
       Tile3D._deprecationWarning('geometricErrorUndefined', 'Required property geometricError is undefined for this tile. Using parent\'s geometric error instead.');
     }
 
-    const refine;
+    let refine;
     if (defined(header.refine)) {
       if (header.refine === 'replace' || header.refine === 'add') {
         Tile3D._deprecationWarning('lowercase-refine', 'This tile uses a lowercase refine "' + header.refine + '". Instead use "' + header.refine.toUpperCase() + '".');
@@ -640,7 +643,7 @@ export default class Tile3D {
         contentHeaderUri = contentHeader.url;
       }
       hasEmptyContent = false;
-      contentState = Tile3DContentState.UNLOADED;
+      contentState = TILE3D_CONTENT_STATE.UNLOADED;
       contentResource = baseResource.getDerivedResource({
         url : contentHeaderUri
       });
@@ -648,7 +651,7 @@ export default class Tile3D {
     } else {
       content = new Empty3DTileContent(tileset, this);
       hasEmptyContent = true;
-      contentState = Tile3DContentState.READY;
+      contentState = TILE3D_CONTENT_STATE.READY;
     }
 
     this._content = content;
@@ -748,6 +751,7 @@ export default class Tile3D {
   }
 }
 
+// eslint-disable-next-line max-statements, complexity
 function applyDebugSettings(tile, tileset, frameState) {
   if (!frameState.passes.render) {
     return;
@@ -758,7 +762,7 @@ function applyDebugSettings(tile, tileset, frameState) {
 
   const showVolume = tileset.debugShowBoundingVolume || (tileset.debugShowContentBoundingVolume && !hasContentBoundingVolume);
   if (showVolume) {
-    const color;
+    let color;
     if (!tile._finalResolution) {
       color = Color.YELLOW;
     } else if (empty) {
@@ -868,7 +872,7 @@ function updateExpireDate(tile) {
 
 function getContentFailedFunction(tile) {
   return function(error) {
-    tile._contentState = Tile3DContentState.FAILED;
+    tile._contentState = TILE3D_CONTENT_STATE.FAILED;
     tile._contentReadyPromise.reject(error);
     tile._contentReadyToProcessPromise.reject(error);
   };

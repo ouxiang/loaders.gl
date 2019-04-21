@@ -40,7 +40,7 @@ export const TILE3D_COLOR_BLEND_MODE = {
   MIX: 2 // Blends the source color and feature color together
 };
 
-export const TILE3D_REFINE = {
+export const TILE3D_REFINEMENT = {
   ADD: 0, // Render tile and, if screen space error exceeded, also refine to its children.
   REPLACE: 1 // Render tile or, if screen space error exceeded, refine to its descendants instead.
 };
