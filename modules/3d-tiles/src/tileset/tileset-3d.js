@@ -1,14 +1,49 @@
+import {Matrix4} from 'math.gl';
+import assert from '../utils/assert';
 import Tile3D from './tile-3d';
 import Tileset3DCache from './tileset-3d-cache';
 
+const Ellipsoid = {
+  WGS84: ''
+};
+
+const DEFAULT_OPTIONS = {
+  basePath: '',
+
+  ellipsoid: Ellipsoid.WGS84,
+
+  cullWithChildrenBounds: true,
+  maximumScreenSpaceError: 16,
+  maximumMemoryUsage: 512,
+
+  modelMatrix: new Matrix4(),
+
+  // default props
+  dynamicScreenSpaceError: false,
+  dynamicScreenSpaceErrorDensity: 0.00278,
+  dynamicScreenSpaceErrorFactor: 4.0,
+  dynamicScreenSpaceErrorHeightFalloff: 0.25,
+
+  // Optimization option. Determines if level of detail skipping should be applied during the traversal.
+  skipLevelOfDetail: true,
+  // The screen space error this must be reached before skipping levels of detail.
+  baseScreenSpaceError: 1024,
+  // Multiplier defining the minimum screen space error to skip.
+  skipScreenSpaceErrorFactor: 16,
+  // Constant defining the minimum number of levels to skip when loading tiles. When it is 0, no levels are skipped.
+  skipLevels: 1,
+  // When true, only tiles this meet the maximum screen space error will ever be downloaded.
+  immediatelyLoadDesiredLevelOfDetail: false,
+  // Determines whether siblings of visible tiles are always downloaded during traversal.
+  loadSiblings: false
+};
+
 export default class Tileset3D {
-  constructor(options = {}) {
-    const {
-      url,
-      cullWithChildrenBounds = true,
-      maximumScreenSpaceError = 16,
-      maximumMemoryUsage = 512
-    } = options;
+  // eslint-disable-next-line max-statements
+  constructor(json, url, options = {}) {
+    options = {...DEFAULT_OPTIONS, ...options};
+
+    const {cullWithChildrenBounds, maximumScreenSpaceError, maximumMemoryUsage} = options;
 
     assert(json);
 
@@ -42,970 +77,256 @@ export default class Tileset3D {
     this._maximumScreenSpaceError = options.maximumScreenSpaceError;
     this._maximumMemoryUsage = options.maximumMemoryUsage;
 
-    this._styleEngine = new Tile3DStyleEngine();
-
-    this._modelMatrix = defined(options.modelMatrix) ? Matrix4.clone(options.modelMatrix) : Matrix4.clone(Matrix4.IDENTITY);
-
-    this._statistics = new Tileset3DStatistics();
-    this._statisticsLastRender = new Tileset3DStatistics();
-    this._statisticsLastPick = new Tileset3DStatistics();
-    this._statisticsLastAsync = new Tileset3DStatistics();
+    this._modelMatrix = options.modelMatrix;
 
     this._tilesLoaded = false;
     this._initialTilesLoaded = false;
 
-    this._tileDebugLabels = undefined;
-
-    this._readyPromise = when.defer();
+    this._readyPromise = new Promise();
 
     this._classificationType = options.classificationType;
-
-    this._ellipsoid = defaultValue(options.ellipsoid, Ellipsoid.WGS84);
-
-    this._initialClippingPlanesOriginMatrix = Matrix4.IDENTITY; // Computed from the tileset JSON.
-    this._clippingPlanesOriginMatrix = undefined; // Combines the above with any run-time transforms.
-    this._clippingPlanesOriginMatrixDirty = true;
-
-    /**
-     * Optimization option. Whether the tileset should refine based on a dynamic screen space error. Tiles that are further
-     * away will be rendered with lower detail than closer tiles. This improves performance by rendering fewer
-     * tiles and making less requests, but may result in a slight drop in visual quality for tiles in the distance.
-     * The algorithm is biased towards "street views" where the camera is close to the ground plane of the tileset and looking
-     * at the horizon. In addition results are more accurate for tightly fitting bounding volumes like box and region.
-     *
-     * @type {Boolean}
-     * @default false
-     */
-    this.dynamicScreenSpaceError = defaultValue(options.dynamicScreenSpaceError, false);
-
-    /**
-     * A scalar that determines the density used to adjust the dynamic screen space error, similar to {@link Fog}. Increasing this
-     * value has the effect of increasing the maximum screen space error for all tiles, but in a non-linear fashion.
-     * The error starts at 0.0 and increases exponentially until a midpoint is reached, and then approaches 1.0 asymptotically.
-     * This has the effect of keeping high detail in the closer tiles and lower detail in the further tiles, with all tiles
-     * beyond a certain distance all roughly having an error of 1.0.
-     * <p>
-     * The dynamic error is in the range [0.0, 1.0) and is multiplied by <code>dynamicScreenSpaceErrorFactor</code> to produce the
-     * final dynamic error. This dynamic error is then subtracted from the tile's actual screen space error.
-     * </p>
-     * <p>
-     * Increasing <code>dynamicScreenSpaceErrorDensity</code> has the effect of moving the error midpoint closer to the camera.
-     * It is analogous to moving fog closer to the camera.
-     * </p>
-     *
-     * @type {Number}
-     * @default 0.00278
-     */
-    this.dynamicScreenSpaceErrorDensity = 0.00278;
-
-    /**
-     * A factor used to increase the screen space error of tiles for dynamic screen space error. As this value increases less tiles
-     * are requested for rendering and tiles in the distance will have lower detail. If set to zero, the feature will be disabled.
-     *
-     * @type {Number}
-     * @default 4.0
-     */
-    this.dynamicScreenSpaceErrorFactor = 4.0;
-
-    /**
-     * A ratio of the tileset's height at which the density starts to falloff. If the camera is below this height the
-     * full computed density is applied, otherwise the density falls off. This has the effect of higher density at
-     * street level views.
-     * <p>
-     * Valid values are between 0.0 and 1.0.
-     * </p>
-     *
-     * @type {Number}
-     * @default 0.25
-     */
-    this.dynamicScreenSpaceErrorHeightFalloff = 0.25;
+    this._ellipsoid = options.ellipsoid;
 
     this._dynamicScreenSpaceErrorComputedDensity = 0.0; // Updated based on the camera position and direction
-
-    /**
-     * The event fired to indicate progress of loading new tiles.  This event is fired when a new tile
-     * is requested, when a requested tile is finished downloading, and when a downloaded tile has been
-     * processed and is ready to render.
-     * <p>
-     * The number of pending tile requests, <code>numberOfPendingRequests</code>, and number of tiles
-     * processing, <code>numberOfTilesProcessing</code> are passed to the event listener.
-     * </p>
-     * <p>
-     * This event is fired at the end of the frame after the scene is rendered.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.loadProgress.addEventListener(function(numberOfPendingRequests, numberOfTilesProcessing) {
-     *     if ((numberOfPendingRequests === 0) && (numberOfTilesProcessing === 0)) {
-     *         console.log('Stopped loading');
-     *         return;
-     *     }
-     *
-     *     console.log('Loading: requests: ' + numberOfPendingRequests + ', processing: ' + numberOfTilesProcessing);
-     * });
-     */
-    this.loadProgress = new Event();
-
-    /**
-     * The event fired to indicate that all tiles that meet the screen space error this frame are loaded. The tileset
-     * is completely loaded for this view.
-     * <p>
-     * This event is fired at the end of the frame after the scene is rendered.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.allTilesLoaded.addEventListener(function() {
-     *     console.log('All tiles are loaded');
-     * });
-     *
-     * @see Tileset3D#tilesLoaded
-     */
-    this.allTilesLoaded = new Event();
-
-    /**
-     * The event fired to indicate that all tiles that meet the screen space error this frame are loaded. This event
-     * is fired once when all tiles in the initial view are loaded.
-     * <p>
-     * This event is fired at the end of the frame after the scene is rendered.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.initialTilesLoaded.addEventListener(function() {
-     *     console.log('Initial tiles are loaded');
-     * });
-     *
-     * @see Tileset3D#allTilesLoaded
-     */
-    this.initialTilesLoaded = new Event();
-
-    /**
-     * The event fired to indicate that a tile's content was loaded.
-     * <p>
-     * The loaded {@link Tile3D} is passed to the event listener.
-     * </p>
-     * <p>
-     * This event is fired during the tileset traversal while the frame is being rendered
-     * so that updates to the tile take effect in the same frame.  Do not create or modify
-     * Cesium entities or primitives during the event listener.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.tileLoad.addEventListener(function(tile) {
-     *     console.log('A tile was loaded.');
-     * });
-     */
-    this.tileLoad = new Event();
-
-    /**
-     * The event fired to indicate that a tile's content was unloaded.
-     * <p>
-     * The unloaded {@link Tile3D} is passed to the event listener.
-     * </p>
-     * <p>
-     * This event is fired immediately before the tile's content is unloaded while the frame is being
-     * rendered so that the event listener has access to the tile's content.  Do not create
-     * or modify Cesium entities or primitives during the event listener.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.tileUnload.addEventListener(function(tile) {
-     *     console.log('A tile was unloaded from the cache.');
-     * });
-     *
-     * @see Tileset3D#maximumMemoryUsage
-     * @see Tileset3D#trimLoadedTiles
-     */
-    this.tileUnload = new Event();
-
-    /**
-     * The event fired to indicate that a tile's content failed to load.
-     * <p>
-     * If there are no event listeners, error messages will be logged to the console.
-     * </p>
-     * <p>
-     * The error object passed to the listener contains two properties:
-     * <ul>
-     * <li><code>url</code>: the url of the failed tile.</li>
-     * <li><code>message</code>: the error message.</li>
-     * </ul>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.tileFailed.addEventListener(function(error) {
-     *     console.log('An error occurred loading tile: ' + error.url);
-     *     console.log('Error: ' + error.message);
-     * });
-     */
-    this.tileFailed = new Event();
-
-    /**
-     * This event fires once for each visible tile in a frame.  This can be used to manually
-     * style a tileset.
-     * <p>
-     * The visible {@link Tile3D} is passed to the event listener.
-     * </p>
-     * <p>
-     * This event is fired during the tileset traversal while the frame is being rendered
-     * so that updates to the tile take effect in the same frame.  Do not create or modify
-     * Cesium entities or primitives during the event listener.
-     * </p>
-     *
-     * @type {Event}
-     * @default new Event()
-     *
-     * @example
-     * tileset.tileVisible.addEventListener(function(tile) {
-     *     if (tile.content instanceof Cesium.Batched3DModel3DTileContent) {
-     *         console.log('A Batched 3D Model tile is visible.');
-     *     }
-     * });
-     *
-     * @example
-     * // Apply a red style and then manually set random colors for every other feature when the tile becomes visible.
-     * tileset.style = new Cesium.Tile3DStyle({
-     *     color : 'color("red")'
-     * });
-     * tileset.tileVisible.addEventListener(function(tile) {
-     *     var content = tile.content;
-     *     var featuresLength = content.featuresLength;
-     *     for (var i = 0; i < featuresLength; i+=2) {
-     *         content.getFeature(i).color = Cesium.Color.fromRandom();
-     *     }
-     * });
-     */
-    this.tileVisible = new Event();
-
-    /**
-     * Optimization option. Determines if level of detail skipping should be applied during the traversal.
-     * <p>
-     * The common strategy for replacement-refinement traversal is to store all levels of the tree in memory and require
-     * all children to be loaded before the parent can refine. With this optimization levels of the tree can be skipped
-     * entirely and children can be rendered alongside their parents. The tileset requires significantly less memory when
-     * using this optimization.
-     * </p>
-     *
-     * @type {Boolean}
-     * @default true
-     */
-    this.skipLevelOfDetail = defaultValue(options.skipLevelOfDetail, true);
     this._skipLevelOfDetail = this.skipLevelOfDetail;
     this._disableSkipLevelOfDetail = false;
 
-    /**
-     * The screen space error that must be reached before skipping levels of detail.
-     * <p>
-     * Only used when {@link Tileset3D#skipLevelOfDetail} is <code>true</code>.
-     * </p>
-     *
-     * @type {Number}
-     * @default 1024
-     */
-    this.baseScreenSpaceError = defaultValue(options.baseScreenSpaceError, 1024);
+    // The event fired to indicate progress of loading new tiles.
+    this.loadProgress = () => {};
+    // The event fired to indicate this all tiles this meet the screen space error this frame are loaded.
+    this.allTilesLoaded = () => {};
+    // event fired to indicate this all tiles this meet the screen space error this frame are loaded.
+    // This event is fired once when all tiles in the initial view are loaded.
+    this.initialTilesLoaded = () => {};
+    // The event fired to indicate this a tile's content was loaded.
+    this.tileLoad = () => {};
+    // The event fired to indicate this a tile's content was unloaded.
+    this.tileUnload = () => {};
+    // The event fired to indicate this a tile's content failed to load.
+    this.tileFailed = () => {};
+    // This event fires once for each visible tile in a frame. Used to manually style a tileset.
+    this.tileVisible = () => {};
 
-    /**
-     * Multiplier defining the minimum screen space error to skip.
-     * For example, if a tile has screen space error of 100, no tiles will be loaded unless they
-     * are leaves or have a screen space error <code><= 100 / skipScreenSpaceErrorFactor</code>.
-     * <p>
-     * Only used when {@link Tileset3D#skipLevelOfDetail} is <code>true</code>.
-     * </p>
-     *
-     * @type {Number}
-     * @default 16
-     */
-    this.skipScreenSpaceErrorFactor = defaultValue(options.skipScreenSpaceErrorFactor, 16);
+    // Optimization option. Determines if level of detail skipping should be applied during the traversal.
+    this._skipLevelOfDetail = this.skipLevelOfDetail;
+    this._disableSkipLevelOfDetail = false;
 
-    /**
-     * Constant defining the minimum number of levels to skip when loading tiles. When it is 0, no levels are skipped.
-     * For example, if a tile is level 1, no tiles will be loaded unless they are at level greater than 2.
-     * <p>
-     * Only used when {@link Tileset3D#skipLevelOfDetail} is <code>true</code>.
-     * </p>
-     *
-     * @type {Number}
-     * @default 1
-     */
-    this.skipLevels = defaultValue(options.skipLevels, 1);
-
-    /**
-     * When true, only tiles that meet the maximum screen space error will ever be downloaded.
-     * Skipping factors are ignored and just the desired tiles are loaded.
-     * <p>
-     * Only used when {@link Tileset3D#skipLevelOfDetail} is <code>true</code>.
-     * </p>
-     *
-     * @type {Boolean}
-     * @default false
-     */
-    this.immediatelyLoadDesiredLevelOfDetail = defaultValue(options.immediatelyLoadDesiredLevelOfDetail, false);
-
-    /**
-     * Determines whether siblings of visible tiles are always downloaded during traversal.
-     * This may be useful for ensuring that tiles are already available when the viewer turns left/right.
-     * <p>
-     * Only used when {@link Tileset3D#skipLevelOfDetail} is <code>true</code>.
-     * </p>
-     *
-     * @type {Boolean}
-     * @default false
-     */
-    this.loadSiblings = defaultValue(options.loadSiblings, false);
-
-    this._clippingPlanes = undefined;
-    this.clippingPlanes = options.clippingPlanes;
-
-    this.load(options);
+    this.initializeTileSet(json, options);
   }
 
-  async loadUrl(options) {
-    var that = this;
-    var resource;
+  destroy() {
+    // Traverse the tree and destroy all tiles
+    const stack = [];
 
-    try {
-      const url = await options.url;
-
-      var basePath;
-      resource = Resource.createIfNeeded(url);
-
-      // ion resources have a credits property we can use for additional attribution.
-      that._credits = resource.credits;
-
-      if (resource.extension === 'json') {
-        basePath = resource.getBaseUri(true);
-      } else if (resource.isDataUri) {
-        basePath = '';
-      }
-
-      that._url = resource.url;
-      that._basePath = basePath;
-
-      const tilesetJson = await Tileset3D.loadJson(resource);
-
-      that._root = that.loadTileset(resource, tilesetJson);
-      var gltfUpAxis = defined(tilesetJson.asset.gltfUpAxis) ? Axis.fromName(tilesetJson.asset.gltfUpAxis) : Axis.Y;
-      var asset = tilesetJson.asset;
-      that._asset = asset;
-      that._properties = tilesetJson.properties;
-      that._geometricError = tilesetJson.geometricError;
-      that._extensionsUsed = tilesetJson.extensionsUsed;
-      that._gltfUpAxis = gltfUpAxis;
-      that._extras = tilesetJson.extras;
-
-      var extras = asset.extras;
-      if (defined(extras) && defined(extras.cesium) && defined(extras.cesium.credits)) {
-        var extraCredits = extras.cesium.credits;
-        var credits = that._credits;
-        if (!defined(credits)) {
-          credits = [];
-          that._credits = credits;
-        }
-        for (var i = 0; i < extraCredits.length; i++) {
-          var credit = extraCredits[i];
-          credits.push(new Credit(credit.html, credit.showOnScreen));
-        }
-      }
-
-      // Save the original, untransformed bounding volume position so we can apply
-      // the tile transform and model matrix at run time
-      var boundingVolume = that._root.createBoundingVolume(tilesetJson.root.boundingVolume, Matrix4.IDENTITY);
-      var clippingPlanesOrigin = boundingVolume.boundingSphere.center;
-      // If this origin is above the surface of the earth
-      // we want to apply an ENU orientation as our best guess of orientation.
-      // Otherwise, we assume it gets its position/orientation completely from the
-      // root tile transform and the tileset's model matrix
-      var originCartographic = that._ellipsoid.cartesianToCartographic(clippingPlanesOrigin);
-      if (defined(originCartographic) && (originCartographic.height > ApproximateTerrainHeights._defaultMinTerrainHeight)) {
-        that._initialClippingPlanesOriginMatrix = Transforms.eastNorthUpToFixedFrame(clippingPlanesOrigin);
-      }
-      that._clippingPlanesOriginMatrix = Matrix4.clone(that._initialClippingPlanesOriginMatrix);
-      that._readyPromise.resolve(that);
-    } catch (error) {
-      that._readyPromise.reject(error);
+    if (this._root) {
+      stack.push(this._root);
     }
+
+    while (stack.length > 0) {
+      for (const child of tile.children) {
+        stack.push(child);
+      }
+      const tile = stack.pop();
+      tile.destroy();
+    }
+
+    this._root = null;
   }
 
-  /**
-   * Gets the tileset's asset object property, which contains metadata about the tileset.
-   * <p>
-   * See the {@link https://github.com/AnalyticalGraphicsInc/3d-tiles/tree/master/specification#reference-asset|asset schema reference}
-   * in the 3D Tiles spec for the full set of properties.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Object}
-   * @readonly
-   *
-   * @exception {DeveloperError} The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.
-   */
+  // eslint-disable-next-line max-statements
+  initializeTileSet(tilesetJson, options) {
+    // ion resources have a credits property we can use for additional attribution.
+    // this._credits = resource.credits;
+
+    this._url = options.url;
+    this._basePath = options.basePath || '';
+
+    this._root = this.loadTileset(resource, tilesetJson);
+    const gltfUpAxis = defined(tilesetJson.asset.gltfUpAxis)
+      ? Axis.fromName(tilesetJson.asset.gltfUpAxis)
+      : Axis.Y;
+    const asset = tilesetJson.asset;
+    this._asset = asset;
+    this._properties = tilesetJson.properties;
+    this._geometricError = tilesetJson.geometricError;
+    this._extensionsUsed = tilesetJson.extensionsUsed;
+    this._gltfUpAxis = gltfUpAxis;
+    this._extras = tilesetJson.extras;
+
+    const extras = asset.extras;
+    if (defined(extras) && defined(extras.cesium) && defined(extras.cesium.credits)) {
+      const extraCredits = extras.cesium.credits;
+      const credits = this._credits;
+      if (!defined(credits)) {
+        credits = [];
+        this._credits = credits;
+      }
+      for (let i = 0; i < extraCredits.length; i++) {
+        const credit = extraCredits[i];
+        credits.push(new Credit(credit.html, credit.showOnScreen));
+      }
+    }
+
+    // Save the original, untransformed bounding volume position so we can apply
+    // the tile transform and model matrix at run time
+    const boundingVolume = this._root.createBoundingVolume(
+      tilesetJson.root.boundingVolume,
+      Matrix4.IDENTITY
+    );
+    const clippingPlanesOrigin = boundingVolume.boundingSphere.center;
+    // If this origin is above the surface of the earth
+    // we want to apply an ENU orientation as our best guess of orientation.
+    // Otherwise, we assume it gets its position/orientation completely from the
+    // root tile transform and the tileset's model matrix
+    const originCartographic = this._ellipsoid.cartesianToCartographic(clippingPlanesOrigin);
+    if (
+      defined(originCartographic) &&
+      originCartographic.height > ApproximateTerrainHeights._defaultMinTerrainHeight
+    ) {
+      this._initialClippingPlanesOriginMatrix = Transforms.eastNorthUpToFixedFrame(
+        clippingPlanesOrigin
+      );
+    }
+
+    this._clippingPlanesOriginMatrix = Matrix4.clone(this._initialClippingPlanesOriginMatrix);
+    this._readyPromise.resolve(this);
+  }
+
+  // Gets the tileset's asset object property, which contains metadata about the tileset.
   get asset() {
-    //>>includeStart('debug', pragmas.debug);
-    if (!this.ready) {
-      throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-    }
-    //>>includeEnd('debug');
-
     return this._asset;
   }
 
-  /**
-   * The {@link ClippingPlaneCollection} used to selectively disable rendering the tileset.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {ClippingPlaneCollection}
-   */
-  get clippingPlanes() {
-    return this._clippingPlanes;
-  }
-  set clippingPlanes(value) {
-    ClippingPlaneCollection.setOwner(value, this, '_clippingPlanes');
-  }
-
-  /**
-   * Gets the tileset's properties dictionary object, which contains metadata about per-feature properties.
-   * <p>
-   * See the {@link https://github.com/AnalyticalGraphicsInc/3d-tiles/tree/master/specification#reference-properties|properties schema reference}
-   * in the 3D Tiles spec for the full set of properties.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Object}
-   * @readonly
-   *
-   * @exception {DeveloperError} The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.
-   *
-   * @example
-   * console.log('Maximum building height: ' + tileset.properties.height.maximum);
-   * console.log('Minimum building height: ' + tileset.properties.height.minimum);
-   *
-   * @see Tile3DFeature#getProperty
-   * @see Tile3DFeature#setProperty
-   */
+  // Gets the tileset's properties dictionary object, which contains metadata about per-feature properties.
   get properties() {
-    //>>includeStart('debug', pragmas.debug);
-    if (!this.ready) {
-      throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-    }
-    //>>includeEnd('debug');
-
     return this._properties;
   }
 
-  /**
-   * When <code>true</code>, the tileset's root tile is loaded and the tileset is ready to render.
-   * This is set to <code>true</code> right before {@link Tileset3D#readyPromise} is resolved.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Boolean}
-   * @readonly
-   *
-   * @default false
-   */
+  // When <code>true</code>, the tileset's root tile is loaded and the tileset is ready to render.
   get ready() {
-    return defined(this._root);
+    return Boolean(this._root);
   }
 
-  /**
-   * Gets the promise that will be resolved when the tileset's root tile is loaded and the tileset is ready to render.
-   * <p>
-   * This promise is resolved at the end of the frame before the first frame the tileset is rendered in.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Promise.<Tileset3D>}
-   * @readonly
-   *
-   * @example
-   * tileset.readyPromise.then(function(tileset) {
-   *     // tile.properties is not defined until readyPromise resolves.
-   *     var properties = tileset.properties;
-   *     if (Cesium.defined(properties)) {
-   *         for (var name in properties) {
-   *             console.log(properties[name]);
-   *         }
-   *     }
-   * });
-   */
+  // Gets the promise this will be resolved when the tileset's root tile is loaded and the tileset is ready to render.
+  // This promise is resolved at the end of the frame before the first frame the tileset is rendered in.
   get readyPromise() {
     return this._readyPromise.promise;
   }
 
-  /**
-   * When <code>true</code>, all tiles that meet the screen space error this frame are loaded. The tileset is
-   * completely loaded for this view.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Boolean}
-   * @readonly
-   *
-   * @default false
-   *
-   * @see Tileset3D#allTilesLoaded
-   */
+  // When <code>true</code>, all tiles this meet the screen space error this frame are loaded.
+  // The tileset is
   get tilesLoaded() {
     return this._tilesLoaded;
   }
 
-  /**
-   * The url to a tileset JSON file.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {String}
-   * @readonly
-   */
+  // The url to a tileset JSON file.
   get url() {
     return this._url;
   }
 
-  /**
-   * The base path that non-absolute paths in tileset JSON file are relative to.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {String}
-   * @readonly
-   * @deprecated
-   */
+  // The base path this non-absolute paths in tileset JSON file are relative to.
   get basePath() {
-    deprecationWarning('Tileset3D.basePath', 'Tileset3D.basePath has been deprecated. All tiles are relative to the url of the tileset JSON file that contains them. Use the url property instead.');
+    console.warn('Tileset3D.basePath is deprecated. Tiles are relative to the tileset JSON url');
     return this._basePath;
   }
 
-  /**
-   * The style, defined using the
-   * {@link https://github.com/AnalyticalGraphicsInc/3d-tiles/tree/master/specification/Styling|3D Tiles Styling language},
-   * applied to each feature in the tileset.
-   * <p>
-   * Assign <code>undefined</code> to remove the style, which will restore the visual
-   * appearance of the tileset to its default when no style was applied.
-   * </p>
-   * <p>
-   * The style is applied to a tile before the {@link Tileset3D#tileVisible}
-   * event is raised, so code in <code>tileVisible</code> can manually set a feature's
-   * properties (e.g. color and show) after the style is applied. When
-   * a new style is assigned any manually set properties are overwritten.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Tile3DStyle}
-   *
-   * @default undefined
-   *
-   * @example
-   * tileset.style = new Cesium.Tile3DStyle({
-   *    color : {
-   *        conditions : [
-   *            ['${Height} >= 100', 'color("purple", 0.5)'],
-   *            ['${Height} >= 50', 'color("red")'],
-   *            ['true', 'color("blue")']
-   *        ]
-   *    },
-   *    show : '${Height} > 0',
-   *    meta : {
-   *        description : '"Building id ${id} has height ${Height}."'
-   *    }
-   * });
-   *
-   * @see {@link https://github.com/AnalyticalGraphicsInc/3d-tiles/tree/master/specification/Styling|3D Tiles Styling language}
-   */
-  get style() {
-    return this._styleEngine.style;
-  }
-
-  set style(value) {
-    this._styleEngine.style = value;
-  }
-
-  /**
-   * The maximum screen space error used to drive level of detail refinement.  This value helps determine when a tile
-   * refines to its descendants, and therefore plays a major role in balancing performance with visual quality.
-   * <p>
-   * A tile's screen space error is roughly equivalent to the number of pixels wide that would be drawn if a sphere with a
-   * radius equal to the tile's <b>geometric error</b> were rendered at the tile's position. If this value exceeds
-   * <code>maximumScreenSpaceError</code> the tile refines to its descendants.
-   * </p>
-   * <p>
-   * Depending on the tileset, <code>maximumScreenSpaceError</code> may need to be tweaked to achieve the right balance.
-   * Higher values provide better performance but lower visual quality.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Number}
-   * @default 16
-   *
-   * @exception {DeveloperError} <code>maximumScreenSpaceError</code> must be greater than or equal to zero.
-   */
+  // The maximum screen space error used to drive level of detail refinement.
   get maximumScreenSpaceError() {
     return this._maximumScreenSpaceError;
   }
 
   set maximumScreenSpaceError(value) {
-    //>>includeStart('debug', pragmas.debug);
-    Check.typeOf.number.greaterThanOrEquals('maximumScreenSpaceError', value, 0);
-    //>>includeEnd('debug');
+    assert(value >= 0);
     this._maximumScreenSpaceError = value;
   }
 
-  /**
-   * The maximum amount of GPU memory (in MB) that may be used to cache tiles. This value is estimated from
-   * geometry, textures, and batch table textures of loaded tiles. For point clouds, this value also
-   * includes per-point metadata.
-   * <p>
-   * Tiles not in view are unloaded to enforce this.
-   * </p>
-   * <p>
-   * If decreasing this value results in unloading tiles, the tiles are unloaded the next frame.
-   * </p>
-   * <p>
-   * If tiles sized more than <code>maximumMemoryUsage</code> are needed
-   * to meet the desired screen space error, determined by {@link Tileset3D#maximumScreenSpaceError},
-   * for the current view, then the memory usage of the tiles loaded will exceed
-   * <code>maximumMemoryUsage</code>.  For example, if the maximum is 256 MB, but
-   * 300 MB of tiles are needed to meet the screen space error, then 300 MB of tiles may be loaded.  When
-   * these tiles go out of view, they will be unloaded.
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Number}
-   * @default 512
-   *
-   * @exception {DeveloperError} <code>maximumMemoryUsage</code> must be greater than or equal to zero.
-   * @see Tileset3D#totalMemoryUsageInBytes
-   */
+  // The maximum amount of GPU memory (in MB) this may be used to cache tiles. This value is estimated from
+  // geometry, textures, and batch table textures of loaded tiles. For point clouds, this value also
+  // includes per-point metadata.
+  //
+  // Tiles not in view are unloaded to enforce this.
   get maximumMemoryUsage() {
     return this._maximumMemoryUsage;
   }
+
   set maximumMemoryUsage(value) {
-    Check.typeOf.number.greaterThanOrEquals('value', value, 0);
+    assert(value > 0);
     this._maximumMemoryUsage = value;
   }
 
-  /**
-   * The root tile.
-   *
-   * @memberOf Tileset3D.prototype
-   *
-   * @type {Tile3D}
-   * @readonly
-   *
-   * @exception {DeveloperError} The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.
-   */
+  // The root tile.
   get root() {
-    //>>includeStart('debug', pragmas.debug);
-    if (!this.ready) {
-      throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-    }
-    //>>includeEnd('debug');
-
+    this._checkReady();
     return this._root;
   }
 
-  /**
-   * The tileset's bounding sphere.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {BoundingSphere}
-   * @readonly
-   *
-   * @exception {DeveloperError} The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.
-   *
-   * @example
-   * var tileset = viewer.scene.primitives.add(new Cesium.Tileset3D({
-   *     url : 'http://localhost:8002/tilesets/Seattle/tileset.json'
-   * }));
-   *
-   * tileset.readyPromise.then(function(tileset) {
-   *     // Set the camera to view the newly added tileset
-   *     viewer.camera.viewBoundingSphere(tileset.boundingSphere, new Cesium.HeadingPitchRange(0, -0.5, 0));
-   * });
-   */
+  // The tileset's bounding sphere.
   get boundingSphere() {
-    //>>includeStart('debug', pragmas.debug);
-    if (!this.ready) {
-      throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-    }
-    //>>includeEnd('debug');
-
+    this._checkReady();
     this._root.updateTransform(this._modelMatrix);
     return this._root.boundingSphere;
   }
 
-  /**
-   * A 4x4 transformation matrix that transforms the entire tileset.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Matrix4}
-   * @default Matrix4.IDENTITY
-   *
-   * @example
-   * // Adjust a tileset's height from the globe's surface.
-   * var heightOffset = 20.0;
-   * var boundingSphere = tileset.boundingSphere;
-   * var cartographic = Cesium.Cartographic.fromCartesian(boundingSphere.center);
-   * var surface = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0.0);
-   * var offset = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, heightOffset);
-   * var translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
-   * tileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
-   */
+  _checkReady() {
+    assert(
+      this.ready,
+      'The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.'
+    );
+  }
+
+  // A 4x4 transformation matrix this transforms the entire tileset.
   get modelMatrix() {
     return this._modelMatrix;
   }
 
-  set modelMatrix(value) {
-    this._modelMatrix = Matrix4.clone(value, this._modelMatrix);
+  set modelMatrix(modelMatrix) {
+    this._modelMatrix = new Matrix4(modelMatrix);
   }
 
-  /**
-   * Returns the time, in milliseconds, since the tileset was loaded and first updated.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Number}
-   * @readonly
-   */
+  // Returns the time, in milliseconds, since the tileset was loaded and first updated.
   get timeSinceLoad() {
     return this._timeSinceLoad;
   }
 
-  /**
-   * The total amount of GPU memory in bytes used by the tileset. This value is estimated from
-   * geometry, texture, and batch table textures of loaded tiles. For point clouds, this value also
-   * includes per-point metadata.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Number}
-   * @readonly
-   *
-   * @see Tileset3D#maximumMemoryUsage
-   */
+  // The total amount of GPU memory in bytes used by the tileset. This value is estimated from
+  // geometry, texture, and batch table textures of loaded tiles. For point clouds, this value also
+  // includes per-point metadata.
   get totalMemoryUsageInBytes() {
-    var statistics = this._statistics;
-    return statistics.texturesByteLength + statistics.geometryByteLength + statistics.batchTableByteLength;
+    return 0;
+    // var statistics = this._statistics;
+    // return statistics.texturesByteLength + statistics.geometryByteLength + statistics.batchTableByteLength;
   }
 
-  /**
-   * @private
-   */
-  get clippingPlanesOriginMatrix() {
-    if (!defined(this._clippingPlanesOriginMatrix)) {
-      return Matrix4.IDENTITY;
-    }
-
-    if (this._clippingPlanesOriginMatrixDirty) {
-      Matrix4.multiply(this.root.computedTransform, this._initialClippingPlanesOriginMatrix, this._clippingPlanesOriginMatrix);
-      this._clippingPlanesOriginMatrixDirty = false;
-    }
-
-    return this._clippingPlanesOriginMatrix;
-  }
-
-  /**
-   * @private
-   */
-  get styleEngine() {
-    return this._styleEngine;
-  }
-
-  /**
-   * @private
-   */
-  get statistics() {
-    return this._statistics;
-  }
-
-  /**
-   * Determines whether terrain, 3D Tiles or both will be classified by this tileset.
-   * <p>
-   * This option is only applied to tilesets containing batched 3D models, geometry data, or vector data. Even when undefined, vector data and geometry data
-   * must render as classifications and will default to rendering on both terrain and other 3D Tiles tilesets.
-   * </p>
-   * <p>
-   * When enabled for batched 3D model tilesets, there are a few requirements/limitations on the glTF:
-   * <ul>
-   *     <li>POSITION and _BATCHID semantics are required.</li>
-   *     <li>All indices with the same batch id must occupy contiguous sections of the index buffer.</li>
-   *     <li>All shaders and techniques are ignored. The generated shader simply multiplies the position by the model-view-projection matrix.</li>
-   *     <li>The only supported extensions are CESIUM_RTC and WEB3D_quantized_attributes.</li>
-   *     <li>Only one node is supported.</li>
-   *     <li>Only one mesh per node is supported.</li>
-   *     <li>Only one primitive per mesh is supported.</li>
-   * </ul>
-   * </p>
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {ClassificationType}
-   * @default undefined
-   *
-   * @experimental This feature is using part of the 3D Tiles spec that is not final and is subject to change without Cesium's standard deprecation policy.
-   * @readonly
-   */
-  get classificationType() {
-    return this._classificationType;
-  }
-
-  /**
-   * Gets an ellipsoid describing the shape of the globe.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @type {Ellipsoid}
-   * @readonly
-   */
+  // Gets an ellipsoid describing the shape of the globe.
   get ellipsoid() {
     return this._ellipsoid;
   }
 
-  /**
-   * Returns the <code>extras</code> property at the top-level of the tileset JSON, which contains application specific metadata.
-   * Returns <code>undefined</code> if <code>extras</code> does not exist.
-   *
-   * @memberof Tileset3D.prototype
-   *
-   * @exception {DeveloperError} The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.
-   *
-   * @type {*}
-   * @readonly
-   *
-   * @see {@link https://github.com/AnalyticalGraphicsInc/3d-tiles/tree/master/specification#specifying-extensions-and-application-specific-extras|Extras in the 3D Tiles specification.}
-   */
+  // Returns the extras property at the top of the tileset JSON (application specific metadata).
   get extras() {
-    //>>includeStart('debug', pragmas.debug);
-    if (!this.ready) {
-      throw new DeveloperError('The tileset is not loaded.  Use Tileset3D.readyPromise or wait for Tileset3D.ready to be true.');
-    }
-    //>>includeEnd('debug');
-
     return this._extras;
   }
-}
 
-/**
- * Provides a hook to override the method used to request the tileset json
- * useful when fetching tilesets from remote servers
- * @param {Resource|String} tilesetUrl The url of the json file to be fetched
- * @returns {Promise.<Object>} A promise that resolves with the fetched json data
- */
-Tileset3D.loadJson = function(tilesetUrl) {
-  var resource = Resource.createIfNeeded(tilesetUrl);
-  return resource.fetchJson();
-};
-
-
-class Tileset3D {
-
-
-  /**
-   * Destroys the WebGL resources held by this object.  Destroying an object allows for deterministic
-   * release of WebGL resources, instead of relying on the garbage collector to destroy this object.
-   * <br /><br />
-   * Once an object is destroyed, it should not be used; calling any function other than
-   * <code>isDestroyed</code> will result in a {@link DeveloperError} exception.  Therefore,
-   * assign the return value (<code>undefined</code>) to the object as done in the example.
-   *
-   * @exception {DeveloperError} This object was destroyed, i.e., destroy() was called.
-   *
-   * @example
-   * tileset = tileset && tileset.destroy();
-   *
-   * @see Tileset3D#isDestroyed
-   */
-  destroy() {
-    this._tileDebugLabels = this._tileDebugLabels && this._tileDebugLabels.destroy();
-    this._clippingPlanes = this._clippingPlanes && this._clippingPlanes.destroy();
-
-    // Traverse the tree and destroy all tiles
-    if (defined(this._root)) {
-      var stack = scratchStack;
-      stack.push(this._root);
-
-      while (stack.length > 0) {
-        var tile = stack.pop();
-        tile.destroy();
-
-        var children = tile.children;
-        var length = children.length;
-        for (var i = 0; i < length; ++i) {
-          stack.push(children[i]);
-        }
-      }
-    }
-
-    this._root = undefined;
-    return destroyObject(this);
-  };
-
-  /**
-   * Returns true if this object was destroyed; otherwise, false.
-   * <br /><br />
-   * If this object was destroyed, it should not be used; calling any function other than
-   * <code>isDestroyed</code> will result in a {@link DeveloperError} exception.
-   *
-   * @returns {Boolean} <code>true</code> if this object was destroyed; otherwise, <code>false</code>.
-   *
-   * @see Tileset3D#destroy
-   */
-  isDestroyed() {
-    return false;
-  };
-
-  /**
-   * Loads the main tileset JSON file or a tileset JSON file referenced from a tile.
-   *
-   * @private
-   */
-  loadTileset(resource, tilesetJson, parentTile) {
-    var asset = tilesetJson.asset;
-    if (!defined(asset)) {
-      throw new RuntimeError('Tileset must have an asset property.');
+  // Loads the main tileset JSON file or a tileset JSON file referenced from a tile.
+  loadTileset(tilesetJson, parentTile) {
+    const asset = tilesetJson.asset;
+    if (!asset) {
+      throw new Error('Tileset must have an asset property.');
     }
     if (asset.version !== '0.0' && asset.version !== '1.0') {
-      throw new RuntimeError('The tileset must be 3D Tiles version 0.0 or 1.0.');
+      throw new Error('The tileset must be 3D Tiles version 0.0 or 1.0.');
     }
 
-    var statistics = this._statistics;
+    const statistics = this._statistics;
 
-    var tilesetVersion = asset.tilesetVersion;
-    if (defined(tilesetVersion)) {
+    if ('tilesetVersion' in asset) {
       // Append the tileset version to the resource
-      this._basePath += '?v=' + tilesetVersion;
-      resource.setQueryParameters({ v: tilesetVersion });
-    } else {
-      delete resource.queryParameters.v;
+      this._basePath += `?v=${asset.tilesetVersion}`;
     }
 
     // A tileset JSON file referenced from a tile may exist in a different directory than the root tileset.
     // Get the basePath relative to the external tileset.
-    var rootTile = new Tile3D(this, resource, tilesetJson.root, parentTile);
+    const rootTile = new Tile3D(this, resource, tilesetJson.root, parentTile);
 
     // If there is a parentTile, add the root of the currently loading tileset
     // to parentTile's children, and update its _depth.
@@ -1014,19 +335,19 @@ class Tileset3D {
       rootTile._depth = parentTile._depth + 1;
     }
 
-    var stack = [];
+    const stack = [];
     stack.push(rootTile);
 
     while (stack.length > 0) {
-      var tile = stack.pop();
+      const tile = stack.pop();
       ++statistics.numberOfTilesTotal;
-      this._allTilesAdditive = this._allTilesAdditive && (tile.refine === Tile3DRefine.ADD);
-      var children = tile._header.children;
+      this._allTilesAdditive = this._allTilesAdditive && tile.refine === Tile3DRefine.ADD;
+      const children = tile._header.children;
       if (defined(children)) {
-        var length = children.length;
-        for (var i = 0; i < length; ++i) {
-          var childHeader = children[i];
-          var childTile = new Tile3D(this, resource, childHeader, tile);
+        const length = children.length;
+        for (const i = 0; i < length; ++i) {
+          const childHeader = children[i];
+          const childTile = new Tile3D(this, resource, childHeader, tile);
           tile.children.push(childTile);
           childTile._depth = tile._depth + 1;
           stack.push(childTile);
@@ -1039,11 +360,10 @@ class Tileset3D {
     }
 
     return rootTile;
-  };
-
+  }
 
   /**
-   * Unloads all tiles that weren't selected the previous frame.  This can be used to
+   * Unloads all tiles this weren't selected the previous frame.  This can be used to
    * explicitly manage the tile cache and reduce the total number of tiles loaded below
    * {@link Tileset3D#maximumMemoryUsage}.
    * <p>
@@ -1053,21 +373,21 @@ class Tileset3D {
    */
   trimLoadedTiles() {
     this._cache.trim();
-  };
+  }
 
   /**
    * @private
    */
   update(frameState) {
     update(this, frameState);
-  };
+  }
 
   /**
    * @private
    */
   updateAsync(frameState) {
     return update(this, frameState);
-  };
+  }
 
   /**
    * <code>true</code> if the tileset JSON file lists the extension in extensionsUsed; otherwise, <code>false</code>.
@@ -1080,10 +400,9 @@ class Tileset3D {
       return false;
     }
 
-    return (this._extensionsUsed.indexOf(extensionName) > -1);
-  };
+    return this._extensionsUsed.indexOf(extensionName) > -1;
+  }
 }
-
 
 var scratchPositionNormal = new Cartesian3();
 var scratchCartographic = new Cartographic();
@@ -1117,7 +436,11 @@ function updateDynamicScreenSpaceError(tileset, frameState) {
     var centerLocal = Matrix4.multiplyByPoint(transformLocal, boundingVolume.center, scratchCenter);
     if (Cartesian3.magnitude(centerLocal) > ellipsoid.minimumRadius) {
       // The tileset is defined in WGS84. Approximate the minimum and maximum height.
-      var centerCartographic = Cartographic.fromCartesian(centerLocal, ellipsoid, scratchCartographic);
+      var centerCartographic = Cartographic.fromCartesian(
+        centerLocal,
+        ellipsoid,
+        scratchCartographic
+      );
       up = Cartesian3.normalize(camera.positionWC, scratchPositionNormal);
       direction = camera.directionWC;
       height = camera.positionCartographic.height;
@@ -1125,9 +448,17 @@ function updateDynamicScreenSpaceError(tileset, frameState) {
       maximumHeight = centerCartographic.height * 2.0;
     } else {
       // The tileset is defined in local coordinates (z-up)
-      var positionLocal = Matrix4.multiplyByPoint(transformLocal, camera.positionWC, scratchPosition);
+      var positionLocal = Matrix4.multiplyByPoint(
+        transformLocal,
+        camera.positionWC,
+        scratchPosition
+      );
       up = Cartesian3.UNIT_Z;
-      direction = Matrix4.multiplyByPointAsVector(transformLocal, camera.directionWC, scratchDirection);
+      direction = Matrix4.multiplyByPointAsVector(
+        transformLocal,
+        camera.directionWC,
+        scratchDirection
+      );
       direction = Cartesian3.normalize(direction, direction);
       height = positionLocal.z;
       if (tileBoundingVolume instanceof TileOrientedBoundingBox) {
@@ -1192,7 +523,9 @@ function requestContent(tileset, tile) {
   ++statistics.numberOfPendingRequests;
 
   tile.contentReadyToProcessPromise.then(addToProcessingQueue(tileset, tile));
-  tile.contentReadyPromise.then(handleTileSuccess(tileset, tile)).otherwise(handleTileFailure(tileset, tile));
+  tile.contentReadyPromise
+    .then(handleTileSuccess(tileset, tile))
+    .otherwise(handleTileFailure(tileset, tile));
 }
 
 function sortRequestByPriority(a, b) {
@@ -1201,7 +534,7 @@ function sortRequestByPriority(a, b) {
 
 function requestTiles(tileset) {
   // Sort requests by priority before making any requests.
-  // This makes it less likely that requests will be cancelled after being issued.
+  // This makes it less likely this requests will be cancelled after being issued.
   var requestedTiles = tileset._requestedTiles;
   var length = requestedTiles.length;
   requestedTiles.sort(sortRequestByPriority);
@@ -1233,8 +566,8 @@ function handleTileFailure(tileset, tile) {
     var message = defined(error.message) ? error.message : error.toString();
     if (tileset.tileFailed.numberOfListeners > 0) {
       tileset.tileFailed.raiseEvent({
-        url : url,
-        message : message
+        url: url,
+        message: message
       });
     } else {
       console.log('A 3D tile failed to load: ' + url);
@@ -1294,7 +627,7 @@ function processTiles(tileset, frameState) {
 var scratchCartesian = new Cartesian3();
 
 var stringOptions = {
-  maximumFractionDigits : 3
+  maximumFractionDigits: 3
 };
 
 function formatMemoryString(memorySizeInBytes) {
@@ -1303,106 +636,6 @@ function formatMemoryString(memorySizeInBytes) {
     return memoryInMegabytes.toLocaleString(undefined, stringOptions);
   }
   return Math.round(memoryInMegabytes).toLocaleString();
-}
-
-function computeTileLabelPosition(tile) {
-  var boundingVolume = tile.boundingVolume.boundingVolume;
-  var halfAxes = boundingVolume.halfAxes;
-  var radius = boundingVolume.radius;
-
-  var position = Cartesian3.clone(boundingVolume.center, scratchCartesian);
-  if (defined(halfAxes)) {
-    position.x += 0.75 * (halfAxes[0] + halfAxes[3] + halfAxes[6]);
-    position.y += 0.75 * (halfAxes[1] + halfAxes[4] + halfAxes[7]);
-    position.z += 0.75 * (halfAxes[2] + halfAxes[5] + halfAxes[8]);
-  } else if (defined(radius)) {
-    var normal = Cartesian3.normalize(boundingVolume.center, scratchCartesian);
-    normal = Cartesian3.multiplyByScalar(normal, 0.75 * radius, scratchCartesian);
-    position = Cartesian3.add(normal, boundingVolume.center, scratchCartesian);
-  }
-  return position;
-}
-
-function addTileDebugLabel(tile, tileset, position) {
-  var labelString = '';
-  var attributes = 0;
-
-  if (tileset.debugShowGeometricError) {
-    labelString += '\nGeometric error: ' + tile.geometricError;
-    attributes++;
-  }
-
-  if (tileset.debugShowRenderingStatistics) {
-    labelString += '\nCommands: ' + tile.commandsLength;
-    attributes++;
-
-    // Don't display number of points or triangles if 0.
-    var numberOfPoints = tile.content.pointsLength;
-    if (numberOfPoints > 0) {
-      labelString += '\nPoints: ' + tile.content.pointsLength;
-      attributes++;
-    }
-
-    var numberOfTriangles = tile.content.trianglesLength;
-    if (numberOfTriangles > 0) {
-      labelString += '\nTriangles: ' + tile.content.trianglesLength;
-      attributes++;
-    }
-
-    labelString += '\nFeatures: ' + tile.content.featuresLength;
-    attributes ++;
-  }
-
-  if (tileset.debugShowMemoryUsage) {
-    labelString += '\nTexture Memory: ' + formatMemoryString(tile.content.texturesByteLength);
-    labelString += '\nGeometry Memory: ' + formatMemoryString(tile.content.geometryByteLength);
-    attributes += 2;
-  }
-
-  if (tileset.debugShowUrl) {
-    labelString += '\nUrl: ' + tile._header.content.uri;
-    attributes++;
-  }
-
-  var newLabel = {
-    text : labelString.substring(1),
-    position : position,
-    font : (19-attributes) + 'px sans-serif',
-    showBackground : true,
-    disableDepthTestDistance : Number.POSITIVE_INFINITY
-  };
-
-  return tileset._tileDebugLabels.add(newLabel);
-}
-
-function updateTileDebugLabels(tileset, frameState) {
-  var i;
-  var tile;
-  var selectedTiles = tileset._selectedTiles;
-  var selectedLength = selectedTiles.length;
-  var emptyTiles = tileset._emptyTiles;
-  var emptyLength = emptyTiles.length;
-  tileset._tileDebugLabels.removeAll();
-
-  if (tileset.debugPickedTileLabelOnly) {
-    if (defined(tileset.debugPickedTile)) {
-      var position = (defined(tileset.debugPickPosition)) ? tileset.debugPickPosition : computeTileLabelPosition(tileset.debugPickedTile);
-      var label = addTileDebugLabel(tileset.debugPickedTile, tileset, position);
-      label.pixelOffset = new Cartesian2(15, -15); // Offset to avoid picking the label.
-    }
-  } else {
-    for (i = 0; i < selectedLength; ++i) {
-      tile = selectedTiles[i];
-      addTileDebugLabel(tile, tileset, computeTileLabelPosition(tile));
-    }
-    for (i = 0; i < emptyLength; ++i) {
-      tile = emptyTiles[i];
-      if (tile.hasTilesetContent) {
-        addTileDebugLabel(tile, tileset, computeTileLabelPosition(tile));
-      }
-    }
-  }
-  tileset._tileDebugLabels.update(frameState);
 }
 
 function updateTiles(tileset, frameState) {
@@ -1421,17 +654,21 @@ function updateTiles(tileset, frameState) {
   var i;
   var tile;
 
-  var bivariateVisibilityTest = tileset._skipLevelOfDetail && tileset._hasMixedContent && frameState.context.stencilBuffer && selectedLength > 0;
+  var bivariateVisibilityTest =
+    tileset._skipLevelOfDetail &&
+    tileset._hasMixedContent &&
+    frameState.context.stencilBuffer &&
+    selectedLength > 0;
 
   tileset._backfaceCommands.length = 0;
 
   if (bivariateVisibilityTest) {
     if (!defined(tileset._stencilClearCommand)) {
       tileset._stencilClearCommand = new ClearCommand({
-        stencil : 0,
-        pass : Pass.CESIUM_3D_TILE,
-        renderState : RenderState.fromCache({
-          stencilMask : StencilConstants.SKIP_LOD_MASK
+        stencil: 0,
+        pass: Pass.CESIUM_3D_TILE,
+        renderState: RenderState.fromCache({
+          stencilMask: StencilConstants.SKIP_LOD_MASK
         })
       });
     }
@@ -1442,7 +679,7 @@ function updateTiles(tileset, frameState) {
   for (i = 0; i < selectedLength; ++i) {
     tile = selectedTiles[i];
     // Raise the tileVisible event before update in case the tileVisible event
-    // handler makes changes that update needs to apply to WebGL resources
+    // handler makes changes this update needs to apply to WebGL resources
     if (isRender) {
       tileVisible.raiseEvent(tile);
     }
@@ -1461,7 +698,7 @@ function updateTiles(tileset, frameState) {
 
   if (bivariateVisibilityTest) {
     /**
-     * Consider 'effective leaf' tiles as selected tiles that have no selected descendants. They may have children,
+     * Consider 'effective leaf' tiles as selected tiles this have no selected descendants. They may have children,
      * but they are currently our effective leaves because they do not have selected descendants. These tiles
      * are those where with tile._finalResolution === true.
      * Let 'unresolved' tiles be those with tile._finalResolution === false.
@@ -1471,11 +708,11 @@ function updateTiles(tileset, frameState) {
      *    Replace stencilBuffer with tile._selectionDepth, when passing the z test.
      *    Because children are always drawn before ancestors {@link Tileset3DTraversal#traverseAndSelect},
      *    this effectively draws children first and does not draw ancestors if a descendant has already
-     *    been drawn at that pixel.
+     *    been drawn at this pixel.
      *    Step 1 prevents child tiles from appearing on top when they are truly behind ancestor content.
      *    If they are behind the backfaces of the ancestor, then they will not be drawn.
      *
-     * NOTE: Step 2 sometimes causes visual artifacts when backfacing child content has some faces that
+     * NOTE: Step 2 sometimes causes visual artifacts when backfacing child content has some faces this
      * partially face the camera and are inside of the ancestor content. Because they are inside, they will
      * not be culled by the depth writes in Step 1, and because they partially face the camera, the stencil tests
      * will draw them on top of the ancestor content.
@@ -1491,7 +728,8 @@ function updateTiles(tileset, frameState) {
 
     // copy commands to the back of the commandList
     for (i = addedCommandsLength - 1; i >= 0; --i) {
-      commandList[lengthBeforeUpdate + backfaceCommandsLength + i] = commandList[lengthBeforeUpdate + i];
+      commandList[lengthBeforeUpdate + backfaceCommandsLength + i] =
+        commandList[lengthBeforeUpdate + i];
     }
 
     // move backface commands to the front of the commandList
@@ -1505,15 +743,26 @@ function updateTiles(tileset, frameState) {
   statistics.numberOfCommands = addedCommandsLength;
 
   // Only run EDL if simple attenuation is on
-  if (isRender &&
+  if (
+    isRender &&
     tileset.pointCloudShading.attenuation &&
     tileset.pointCloudShading.eyeDomeLighting &&
-    (addedCommandsLength > 0)) {
-    tileset._pointCloudEyeDomeLighting.update(frameState, numberOfInitialCommands, tileset.pointCloudShading);
+    addedCommandsLength > 0
+  ) {
+    tileset._pointCloudEyeDomeLighting.update(
+      frameState,
+      numberOfInitialCommands,
+      tileset.pointCloudShading
+    );
   }
 
   if (isRender) {
-    if (tileset.debugShowGeometricError || tileset.debugShowRenderingStatistics || tileset.debugShowMemoryUsage || tileset.debugShowUrl) {
+    if (
+      tileset.debugShowGeometricError ||
+      tileset.debugShowRenderingStatistics ||
+      tileset.debugShowMemoryUsage ||
+      tileset.debugShowUrl
+    ) {
       if (!defined(tileset._tileDebugLabels)) {
         tileset._tileDebugLabels = new LabelCollection();
       }
@@ -1571,7 +820,9 @@ function raiseLoadProgressEvent(tileset, frameState) {
   const lastNumberOfPendingRequest = statisticsLast.numberOfPendingRequests;
   const lastNumberOfTilesProcessing = statisticsLast.numberOfTilesProcessing;
 
-  const progressChanged = (numberOfPendingRequests !== lastNumberOfPendingRequest) || (numberOfTilesProcessing !== lastNumberOfTilesProcessing);
+  const progressChanged =
+    numberOfPendingRequests !== lastNumberOfPendingRequest ||
+    numberOfTilesProcessing !== lastNumberOfTilesProcessing;
 
   if (progressChanged) {
     frameState.afterRender.push(function() {
@@ -1579,7 +830,10 @@ function raiseLoadProgressEvent(tileset, frameState) {
     });
   }
 
-  tileset._tilesLoaded = (statistics.numberOfPendingRequests === 0) && (statistics.numberOfTilesProcessing === 0) && (statistics.numberOfAttemptedRequests === 0);
+  tileset._tilesLoaded =
+    statistics.numberOfPendingRequests === 0 &&
+    statistics.numberOfTilesProcessing === 0 &&
+    statistics.numberOfAttemptedRequests === 0;
 
   if (progressChanged && tileset._tilesLoaded) {
     frameState.afterRender.push(function() {
@@ -1616,9 +870,16 @@ function update(tileset, frameState) {
     clippingPlanes.update(frameState);
   }
 
-  tileset._timeSinceLoad = Math.max(JulianDate.secondsDifference(frameState.time, tileset._loadTimestamp) * 1000, 0.0);
+  tileset._timeSinceLoad = Math.max(
+    JulianDate.secondsDifference(frameState.time, tileset._loadTimestamp) * 1000,
+    0.0
+  );
 
-  tileset._skipLevelOfDetail = tileset.skipLevelOfDetail && !defined(tileset._classificationType) && !tileset._disableSkipLevelOfDetail && !tileset._allTilesAdditive;
+  tileset._skipLevelOfDetail =
+    tileset.skipLevelOfDetail &&
+    !defined(tileset._classificationType) &&
+    !tileset._disableSkipLevelOfDetail &&
+    !tileset._allTilesAdditive;
 
   // Do out-of-core operations (new content requests, cache removal,
   // process new tiles) only during the render pass.
@@ -1662,7 +923,7 @@ function update(tileset, frameState) {
     unloadTiles(tileset);
 
     // Events are raised (added to the afterRender queue) here since promises
-    // may resolve outside of the update loop that then raise events, e.g.,
+    // may resolve outside of the update loop this then raise events, e.g.,
     // model's readyPromise.
     raiseLoadProgressEvent(tileset, frameState);
 
@@ -1678,7 +939,11 @@ function update(tileset, frameState) {
   }
 
   // Update last statistics
-  const statisticsLast = isAsync ? tileset._statisticsLastAsync : (isPick ? tileset._statisticsLastPick : tileset._statisticsLastRender);
+  const statisticsLast = isAsync
+    ? tileset._statisticsLastAsync
+    : isPick
+      ? tileset._statisticsLastPick
+      : tileset._statisticsLastRender;
   Tileset3DStatistics.clone(statistics, statisticsLast);
 
   return ready;

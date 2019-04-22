@@ -59,7 +59,10 @@ export default class Tileset3DCache {
     // The sub-list to the left of the sentinel is ordered from LRU to MRU.
     const sentinel = this._sentinel;
     let node = list.head;
-    while ((node !== sentinel) && ((tileset.totalMemoryUsageInBytes > maximumMemoryUsageInBytes) || trimTiles)) {
+    while (
+      node !== sentinel &&
+      (tileset.totalMemoryUsageInBytes > maximumMemoryUsageInBytes || trimTiles)
+    ) {
       const tile = node.item;
       node = node.next;
       this.unloadTile(tileset, tile, unloadCallback);

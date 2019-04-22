@@ -5,94 +5,94 @@ import Tile3D from '@loaders.gl/3d-tiles/tileset/tile-3d';
 const clone = x => x;
 
 const TILE_WITH_BOUNDING_SPHERE = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  children : [],
-  boundingVolume : {
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
+  boundingVolume: {
     sphere: [0.0, 0.0, 0.0, 5.0]
   }
 };
 
 const TILE_WITH_CONTENT_BOUNDING_SPHERE = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  content : {
-    url : '0/0.b3dm',
-    boundingVolume : {
+  geometricError: 1,
+  refine: 'REPLACE',
+  content: {
+    url: '0/0.b3dm',
+    boundingVolume: {
       sphere: [0.0, 0.0, 1.0, 5.0]
     }
   },
-  children : [],
-  boundingVolume : {
+  children: [],
+  boundingVolume: {
     sphere: [0.0, 0.0, 1.0, 5.0]
   }
 };
 
 const TILE_WITH_BOUNDING_REGION = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  children : [],
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
   boundingVolume: {
-    region : [-1.2, -1.2, 0.0, 0.0, -30, -34]
+    region: [-1.2, -1.2, 0.0, 0.0, -30, -34]
   }
 };
 
 const TILE_WITH_CONTENT_BOUNDING_REGION = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  children : [],
-  content : {
-    url : '0/0.b3dm',
-    boundingVolume : {
-      region : [-1.2, -1.2, 0, 0, -30, -34]
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
+  content: {
+    url: '0/0.b3dm',
+    boundingVolume: {
+      region: [-1.2, -1.2, 0, 0, -30, -34]
     }
   },
   boundingVolume: {
-    region : [-1.2, -1.2, 0, 0, -30, -34]
+    region: [-1.2, -1.2, 0, 0, -30, -34]
   }
 };
 
 const TILE_WITH_BOUNDING_BOX = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  children : [],
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
   boundingVolume: {
-    box : [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    box: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
   }
 };
 
 const TILE_WITH_CONTENT_BOUNDING_BOX = {
-  geometricError : 1,
-  refine : 'REPLACE',
-  children : [],
-  content : {
-    url : '0/0.b3dm',
-    boundingVolume : {
-      box : [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
+  content: {
+    url: '0/0.b3dm',
+    boundingVolume: {
+      box: [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
     }
   },
   boundingVolume: {
-    box : [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
+    box: [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
   }
 };
 
 const TILE_WITH_VIEWER_REQUEST_VOLUME = {
-  geometricError : 1,
-refine : 'REPLACE',
-  children : [],
+  geometricError: 1,
+  refine: 'REPLACE',
+  children: [],
   boundingVolume: {
-    box : [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
+    box: [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0]
   },
-  viewerRequestVolume : {
-    box : [0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0]
+  viewerRequestVolume: {
+    box: [0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0]
   }
 };
 
 const MOCK_TILESET = {
-  debugShowBoundingVolume : true,
-  debugShowViewerRequestVolume : true,
-  modelMatrix : Matrix4.IDENTITY,
-  _geometricError : 2
+  debugShowBoundingVolume: true,
+  debugShowViewerRequestVolume: true,
+  modelMatrix: Matrix4.IDENTITY,
+  _geometricError: 2
 };
 
 const centerLongitude = -1.31968;
@@ -174,7 +174,12 @@ test('bounding volumes', tt => {
   });
 
   test('can have a content bounding sphere', t => {
-    const tile = new Tile3D(MOCK_TILESET, '/some_url', TILE_WITH_CONTENT_BOUNDING_SPHERE, undefined);
+    const tile = new Tile3D(
+      MOCK_TILESET,
+      '/some_url',
+      TILE_WITH_CONTENT_BOUNDING_SPHERE,
+      undefined
+    );
     const radius = TILE_WITH_CONTENT_BOUNDING_SPHERE.content.boundingVolume.sphere[3];
     t.ok(tile.contentBoundingVolume);
     t.equals(tile.contentBoundingVolume.boundingVolume.radius, radius);
@@ -196,7 +201,12 @@ test('bounding volumes', tt => {
 
   test('can have a content bounding region', t => {
     const region = TILE_WITH_CONTENT_BOUNDING_REGION.content.boundingVolume.region;
-    const tile = new Tile3D(MOCK_TILESET, '/s_Cme_url', TILE_WITH_CONTENT_BOUNDING_REGION, undefined);
+    const tile = new Tile3D(
+      MOCK_TILESET,
+      '/s_Cme_url',
+      TILE_WITH_CONTENT_BOUNDING_REGION,
+      undefined
+    );
     t.ok(tile.contentBoundingVolume);
     const tbb = new TileBoundingRegion({
       rectangle: new Rectangle(region[0], region[1], region[2], region[3]),
@@ -284,7 +294,7 @@ test('bounding volumes', tt => {
 
   test('tile transform changes', t => {
     const MOCK_TILESET = {
-      modelMatrix : Matrix4.IDENTITY
+      modelMatrix: Matrix4.IDENTITY
     };
     const header = clone(TILE_WITH_BOUNDING_SPHERE, true);
     header.transform = getTileTransform(centerLongitude, centerLatitude);

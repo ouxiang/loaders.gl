@@ -24,8 +24,8 @@ defineProperties(TileOrientedBoundingBox.prototype, {
    * @type {Object}
    * @readonly
    */
-  boundingVolume : {
-    get : function() {
+  boundingVolume: {
+    get: function() {
       return this._orientedBoundingBox;
     }
   },
@@ -37,8 +37,8 @@ defineProperties(TileOrientedBoundingBox.prototype, {
    * @type {BoundingSphere}
    * @readonly
    */
-  boundingSphere : {
-    get : function() {
+  boundingSphere: {
+    get: function() {
       return this._boundingSphere;
     }
   }
@@ -103,22 +103,25 @@ TileOrientedBoundingBox.prototype.createDebugVolume = function(color) {
     minimum: new Cartesian3(-1.0, -1.0, -1.0),
     maximum: new Cartesian3(1.0, 1.0, 1.0)
   });
-  var modelMatrix = Matrix4.fromRotationTranslation(this.boundingVolume.halfAxes, this.boundingVolume.center);
+  var modelMatrix = Matrix4.fromRotationTranslation(
+    this.boundingVolume.halfAxes,
+    this.boundingVolume.center
+  );
   var instance = new GeometryInstance({
-    geometry : geometry,
-    id : 'outline',
-    modelMatrix : modelMatrix,
-    attributes : {
-      color : ColorGeometryInstanceAttribute.fromColor(color)
+    geometry: geometry,
+    id: 'outline',
+    modelMatrix: modelMatrix,
+    attributes: {
+      color: ColorGeometryInstanceAttribute.fromColor(color)
     }
   });
 
   return new Primitive({
-    geometryInstances : instance,
-    appearance : new PerInstanceColorAppearance({
-      translucent : false,
-      flat : true
+    geometryInstances: instance,
+    appearance: new PerInstanceColorAppearance({
+      translucent: false,
+      flat: true
     }),
-    asynchronous : false
+    asynchronous: false
   });
 };

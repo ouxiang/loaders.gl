@@ -3,28 +3,27 @@ import ManagedArray from '../utils/managed-array';
 import assert from '../utils/assert';
 
 export default class Tileset3DTraverser {
-
   constructor() {
     this.traversal = {
-      stack : new ManagedArray(),
-      stackMaximumLength : 0
+      stack: new ManagedArray(),
+      stackMaximumLength: 0
     };
 
     this.emptyTraversal = {
-      stack : new ManagedArray(),
-      stackMaximumLength : 0
+      stack: new ManagedArray(),
+      stackMaximumLength: 0
     };
 
     this.descendantTraversal = {
-      stack : new ManagedArray(),
-      stackMaximumLength : 0
+      stack: new ManagedArray(),
+      stackMaximumLength: 0
     };
 
     this.selectionTraversal = {
-      stack : new ManagedArray(),
-      stackMaximumLength : 0,
-      ancestorStack : new ManagedArray(),
-      ancestorStackMaximumLength : 0
+      stack: new ManagedArray(),
+      stackMaximumLength: 0,
+      ancestorStack: new ManagedArray(),
+      ancestorStackMaximumLength: 0
     };
 
     this.descendantSelectionDepth = 2;
@@ -70,7 +69,7 @@ export default class Tileset3DTraverser {
     this.selectionTraversal.ancestorStack.trim(this.selectionTraversal.ancestorStackMaximumLength);
 
     return true;
-  };
+  }
 
   executeBaseTraversal(root, frameState) {
     const baseScreenSpaceError = this._maximumScreenSpaceError;
@@ -107,7 +106,7 @@ export default class Tileset3DTraverser {
         tile.content.featurePropertiesDirty = false;
         tile.lastStyleTime = 0; // Force applying the style to this tile
         this._selectedTilesToStyle.push(tile);
-      } else if ((tile._selectedFrame < frameState.frameNumber - 1)) {
+      } else if (tile._selectedFrame < frameState.frameNumber - 1) {
         // Tile is newly selected; it is selected this frame, but was not selected last frame.
         this._selectedTilesToStyle.push(tile);
       }
@@ -120,7 +119,10 @@ export default class Tileset3DTraverser {
     const stack = descendantTraversal.stack;
     stack.push(root);
     while (stack.length > 0) {
-      descendantTraversal.stackMaximumLength = Math.max(descendantTraversal.stackMaximumLength, stack.length);
+      descendantTraversal.stackMaximumLength = Math.max(
+        descendantTraversal.stackMaximumLength,
+        stack.length
+      );
       const tile = stack.pop();
       for (const child of this.children) {
         if (this.isVisible(child)) {
@@ -185,8 +187,12 @@ export default class Tileset3DTraverser {
 
       case TILE3D_REFINEMENT.REPLACE:
         const {parent} = tile;
-        const useParentScreenSpaceError = parent && (!this.skipLevelOfDetail() || (tile._screenSpaceError === 0.0) || parent.hasTilesetContent);
-        const screenSpaceError = useParentScreenSpaceError ? parent._screenSpaceError : tile._screenSpaceError;
+        const useParentScreenSpaceError =
+          parent &&
+          (!this.skipLevelOfDetail() || tile._screenSpaceError === 0.0 || parent.hasTilesetContent);
+        const screenSpaceError = useParentScreenSpaceError
+          ? parent._screenSpaceError
+          : tile._screenSpaceError;
         const rootScreenSpaceError = this.root._screenSpaceError;
         return rootScreenSpaceError - screenSpaceError; // Map higher SSE to lower values (e.g. root tile is highest priority)
 
@@ -225,7 +231,7 @@ export default class Tileset3DTraverser {
 
   meetsScreenSpaceErrorEarly(tile, frameState) {
     const {parent} = tile;
-    if (!parent || parent.hasTilesetContent || (parent.refine !== TILE3D_REFINEMENT.ADD)) {
+    if (!parent || parent.hasTilesetContent || parent.refine !== TILE3D_REFINEMENT.ADD) {
       return false;
     }
 
@@ -258,7 +264,8 @@ export default class Tileset3DTraverser {
 
     // Optimization - if none of the tile's children are visible then this tile isn't visible
     const replace = tile.refine === TILE3D_REFINEMENT.REPLACE;
-    const useOptimization = tile._optimChildrenWithinParent === TILE3D_OPTIMIZATION_HINT.USE_OPTIMIZATION;
+    const useOptimization =
+      tile._optimChildrenWithinParent === TILE3D_OPTIMIZATION_HINT.USE_OPTIMIZATION;
     if (replace && useOptimization && hasChildren) {
       if (!this.anyChildrenVisible(tile, frameState)) {
         ++this._statistics.numberOfTilesCulledWithChildrenUnion;
@@ -282,9 +289,12 @@ export default class Tileset3DTraverser {
       // ancestorWithContent is an ancestor that has content or has the potential to have
       // content. Used in conjunction with this.skipLevels to know when to skip a tile.
       // ancestorWithContentAvailable is an ancestor that is rendered if a desired tile is not loaded.
-      const hasContent = this.hasUnloadedContent(parent) || (parent._requestedFrame === frameState.frameNumber);
+      const hasContent =
+        this.hasUnloadedContent(parent) || parent._requestedFrame === frameState.frameNumber;
       tile._ancestorWithContent = hasContent ? parent : parent._ancestorWithContent;
-      tile._ancestorWithContentAvailable = parent.contentAvailable ? parent : parent._ancestorWithContentAvailable;
+      tile._ancestorWithContentAvailable = parent.contentAvailable
+        ? parent
+        : parent._ancestorWithContentAvailable;
     }
   }
 
@@ -299,10 +309,12 @@ export default class Tileset3DTraverser {
 
   reachedSkippingThreshold(tile) {
     const ancestor = tile._ancestorWithContent;
-    return !this.immediatelyLoadDesiredLevelOfDetail &&
-         ancestor &&
-         (tile._screenSpaceError < (ancestor._screenSpaceError / this.skipScreenSpaceErrorFactor)) &&
-         (tile._depth > (ancestor._depth + this.skipLevels));
+    return (
+      !this.immediatelyLoadDesiredLevelOfDetail &&
+      ancestor &&
+      tile._screenSpaceError < ancestor._screenSpaceError / this.skipScreenSpaceErrorFactor &&
+      tile._depth > ancestor._depth + this.skipLevels
+    );
   }
 
   // eslint-disable-next-line complexity
@@ -315,9 +327,9 @@ export default class Tileset3DTraverser {
 
     function compareDistanceToCamera(a, b) {
       // Sort by farthest child first since this is going on a stack
-      return b._distanceToCamera === 0 && a._distanceToCamera === 0 ?
-        b._centerZDepth - a._centerZDepth :
-        b._distanceToCamera - a._distanceToCamera;
+      return b._distanceToCamera === 0 && a._distanceToCamera === 0
+        ? b._centerZDepth - a._centerZDepth
+        : b._distanceToCamera - a._distanceToCamera;
     }
 
     // Sort by distance to take advantage of early Z and reduce artifacts for skipLevelOfDetail
@@ -518,8 +530,14 @@ export default class Tileset3DTraverser {
     stack.push(root);
 
     while (stack.length > 0 || ancestorStack.length > 0) {
-      selectionTraversal.stackMaximumLength = Math.max(selectionTraversal.stackMaximumLength, stack.length);
-      selectionTraversal.ancestorStackMaximumLength = Math.max(selectionTraversal.ancestorStackMaximumLength, ancestorStack.length);
+      selectionTraversal.stackMaximumLength = Math.max(
+        selectionTraversal.stackMaximumLength,
+        stack.length
+      );
+      selectionTraversal.ancestorStackMaximumLength = Math.max(
+        selectionTraversal.ancestorStackMaximumLength,
+        ancestorStack.length
+      );
 
       if (ancestorStack.length > 0) {
         var waitingTile = ancestorStack.peek();
