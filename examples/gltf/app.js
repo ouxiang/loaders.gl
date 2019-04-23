@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 /* global document, window */
 import {load} from '@loaders.gl/core';
-import {DracoLoader} from '@loaders.gl/draco';
+// import {DracoLoader} from '@loaders.gl/draco';
 import GL from '@luma.gl/constants';
 import {AnimationLoop, setParameters, clear, log, lumaStats} from '@luma.gl/core';
 import {GLTFScenegraphLoader, createGLTFObjects, GLTFEnvironment, VRDisplay} from '@luma.gl/addons';
@@ -162,8 +162,8 @@ const DEFAULT_OPTIONS = {
 async function loadGLTF(urlOrPromise, gl, options) {
   const loadResult = await load(urlOrPromise, GLTFScenegraphLoader, {
     ...options,
-    gl,
-    DracoLoader
+    gl
+    // DracoLoader
   });
   const {gltf, scenes, animator} = loadResult;
   scenes[0].traverse((node, {worldMatrix}) => log.info(4, 'Using model: ', node)());

@@ -65,12 +65,19 @@ module.exports = {
   ADDITIONAL_LINKS: [],
 
   EXAMPLES: [
-    //    {
-    //      title: 'GLTF',
-    //      path: 'examples/gltf',
-    //      image: 'images/example-gltf.jpg'
-    //    }
+     {
+       title: 'GLTF',
+       path: 'examples/gltf',
+       image: 'images/example-gltf.jpg'
+     },
+     {
+       title: 'Point Clouds & Meshes',
+       path: 'examples/las',
+       image: 'images/example-gltf.jpg'
+     }
   ],
+
+  EXAMPLE_PAGE_URL: resolve(__dirname, './templates/example-n.jsx'),
 
   // Avoids duplicate conflicting inputs when importing from examples folders
   // Ocular adds this to gatsby's webpack config

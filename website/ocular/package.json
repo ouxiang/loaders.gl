@@ -12,7 +12,7 @@
     "clean": "rm -rf ./.cache ./public",
     "develop": "rm -fr .cache && gatsby develop --port=8001",
     "build": "gatsby build --prefix-paths",
-    "serve": "gatsby serve",
+    "serve": "gatsby serve --prefix-paths",
     "publish-docs": "yarn build && mkdir -p ../../docs && rm -rf ../../docs/*  && mv public/* ../../docs"
   },
   "dependencies": {

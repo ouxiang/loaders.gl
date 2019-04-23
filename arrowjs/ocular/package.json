@@ -12,14 +12,14 @@
     "clean": "rm -rf ./.cache ./public",
     "develop": "rm -fr .cache && gatsby develop --port=8001",
     "build": "gatsby build --prefix-paths",
-    "serve": "gatsby serve",
+    "serve": "gatsby serve --prefix-paths",
     "publish-docs": "yarn build && mkdir -p ../../docs/arrowjs && rm -rf ../../docs/arrowjs/* && mv public/* ../../docs/arrowjs"
   },
   "dependencies": {},
   "devDependencies": {
     "gatsby": "2.3.0",
     "gatsby-plugin-styletron": "^3.0.5",
-    "ocular-gatsby": "../../../ocular/modules/gatsby",
+    "ocular-gatsby": "1.0.0-alpha.20",
     "react": "^16.6.0",
     "react-dom": "^16.6.0",
     "sharp": "0.22.0"
