@@ -1,4 +1,5 @@
 import test from 'tape-promise/tape';
+import {Matrix4} from 'math.gl';
 import {TILE3D_REFINEMENT} from '@loaders.gl/3d-tiles/constants';
 import Tile3D from '@loaders.gl/3d-tiles/tileset/tile-3d';
 
@@ -91,7 +92,7 @@ const TILE_WITH_VIEWER_REQUEST_VOLUME = {
 const MOCK_TILESET = {
   debugShowBoundingVolume: true,
   debugShowViewerRequestVolume: true,
-  modelMatrix: Matrix4.IDENTITY,
+  modelMatrix: new Matrix4(),
   _geometricError: 2
 };
 

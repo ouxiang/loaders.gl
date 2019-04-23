@@ -1,4 +1,8 @@
-/* eslint-disable */
+// TODO - Evaluates support for the childrenWithinParent optimization.
+// This is used to more tightly cull tilesets if
+// children bounds are fully contained within the parent.
+
+ /* eslint-disable */
 import {TILE3D_OPTIMIZATION_HINT} from '../constants';
 
 /**
