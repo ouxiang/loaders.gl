@@ -15,12 +15,11 @@
     "serve": "gatsby serve",
     "publish-docs": "yarn build && mkdir -p ../../docs/arrowjs && rm -rf ../../docs/arrowjs/* && mv public/* ../../docs/arrowjs"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "gatsby": "2.3.0",
     "gatsby-plugin-styletron": "^3.0.5",
-    "ocular-gatsby": "1.0.0-alpha.20",
+    "ocular-gatsby": "../../../ocular/modules/gatsby",
     "react": "^16.6.0",
     "react-dom": "^16.6.0",
     "sharp": "0.22.0"
