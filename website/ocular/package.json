@@ -8,8 +8,9 @@
   ],
   "main": "index.js",
   "scripts": {
-    "start": "NODE_OPTIONS=--max-old-space-size=20000 yarn clean && yarn develop",
+    "start": "yarn copy-examples && yarn clean && yarn develop",
     "clean": "rm -rf ./.cache ./public",
+    "copy-examples": "rm -rf examples ; find ../../examples --name node_modules -exec rm -r {} \\; ; cp -r ../../examples . ",
     "develop": "gatsby develop --port=8001",
     "build": "gatsby build --prefix-paths",
     "serve": "gatsby serve --prefix-paths",

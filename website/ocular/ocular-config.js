@@ -90,15 +90,15 @@ module.exports = {
   // Ocular adds this to gatsby's webpack config
   webpack: {
     resolve: {
-      modules: [resolve(__dirname, './node_modules')],
+      // modules: [resolve(__dirname, './node_modules')],
       alias: Object.assign({}, ALIASES, dependencyAliases, {
-        '@luma.gl/addons': `${__dirname}/node_modules/@luma.gl/addons/src`,
-        '@luma.gl/core': `${__dirname}/node_modules/@luma.gl/core/src`,
-        '@luma.gl/constants': `${__dirname}/node_modules/@luma.gl/constants/src`,
-        '@luma.gl/webgl': `${__dirname}/node_modules/@luma.gl/webgl/src`,
-        '@deck.gl/core': `${__dirname}/node_modules/@deck.gl/core/src`,
-        '@deck.gl/layers': `${__dirname}/node_modules/@deck.gl/layers/src`,
-        '@deck.gl/react': `${__dirname}/node_modules/@deck.gl/react/src`
+      //   '@luma.gl/addons': `${__dirname}/node_modules/@luma.gl/addons/src`,
+      //   '@luma.gl/core': `${__dirname}/node_modules/@luma.gl/core/src`,
+      //   '@luma.gl/constants': `${__dirname}/node_modules/@luma.gl/constants/src`,
+      //   '@luma.gl/webgl': `${__dirname}/node_modules/@luma.gl/webgl/src`,
+      //   '@deck.gl/core': `${__dirname}/node_modules/@deck.gl/core/src`,
+      //   '@deck.gl/layers': `${__dirname}/node_modules/@deck.gl/layers/src`,
+      //   '@deck.gl/react': `${__dirname}/node_modules/@deck.gl/react/src`
       })
     }
   }
