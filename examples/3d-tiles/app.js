@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars */
 import React, {PureComponent} from 'react';
 import {render} from 'react-dom';
-import DeckGL, {COORDINATE_SYSTEM, PointCloudLayer, OrbitView, LinearInterpolator} from 'deck.gl';
+import DeckGL from '@deck.gl/react';
+import {COORDINATE_SYSTEM, OrbitView, LinearInterpolator} from '@deck.gl/core';
+import {PointCloudLayer} from '@deck.gl/layers';
 
 import {Tile3DLoader} from '@loaders.gl/3d-tiles';
 import {load, registerLoaders} from '@loaders.gl/core';
@@ -52,7 +54,7 @@ function getDataRange(data, step = 3) {
   return {mins, maxs};
 }
 
-export class App extends PureComponent {
+export default class App extends PureComponent {
   constructor(props) {
     super(props);
 

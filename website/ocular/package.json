@@ -16,10 +16,13 @@
     "publish-docs": "yarn build && mkdir -p ../../docs && rm -rf ../../docs/*  && mv public/* ../../docs"
   },
   "dependencies": {
+    "@deck.gl/core": "^7.0.2",
+    "@deck.gl/layers": "^7.0.2",
+    "@deck.gl/react": "^7.0.2",
     "@luma.gl/addons": "^7.0.0",
+    "@luma.gl/constants": "^7.0.0",
     "@luma.gl/core": "^7.0.0",
     "@luma.gl/webgl": "^7.0.0",
-    "@luma.gl/constants": "^7.0.0",
     "@probe.gl/stats-widget": "^3.0.1",
     "react": "^16.6.0",
     "react-dom": "^16.6.0"

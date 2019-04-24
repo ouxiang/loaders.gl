@@ -21,6 +21,7 @@ const callbacks = getGatsbyNodeCallbacks(ocularConfig);
 
 module.exports = callbacks;
 
+/*
 const onCreateWebpackConfig = callbacks.onCreateWebpackConfig;
 
 callbacks.onCreateWebpackConfig = function onCreateWebpackConfigOverride(opts) {
@@ -77,3 +78,5 @@ callbacks.onCreateWebpackConfig = function onCreateWebpackConfigOverride(opts) {
   // in which case consider using webpack-merge.
   actions.setWebpackConfig(newConfig);
 };
+*/
+
