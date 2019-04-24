@@ -10,22 +10,24 @@
   "scripts": {
     "start": "NODE_OPTIONS=--max-old-space-size=20000 yarn clean && yarn develop",
     "clean": "rm -rf ./.cache ./public",
-    "develop": "rm -fr .cache && gatsby develop --port=8001",
+    "develop": "gatsby develop --port=8001",
     "build": "gatsby build --prefix-paths",
     "serve": "gatsby serve --prefix-paths",
     "publish-docs": "yarn build && mkdir -p ../../docs && rm -rf ../../docs/*  && mv public/* ../../docs"
   },
   "dependencies": {
-    "@luma.gl/core": "^7.0.0-rc",
-    "@luma.gl/constants": "^7.0.0-rc",
-    "@probe.gl/stats-widget": "^3.0.1"
+    "@luma.gl/addons": "^7.0.0",
+    "@luma.gl/core": "^7.0.0",
+    "@luma.gl/webgl": "^7.0.0",
+    "@luma.gl/constants": "^7.0.0",
+    "@probe.gl/stats-widget": "^3.0.1",
+    "react": "^16.6.0",
+    "react-dom": "^16.6.0"
   },
   "devDependencies": {
     "gatsby": "^2.3.0",
     "gatsby-plugin-styletron": "^3.0.5",
     "ocular-gatsby": "1.0.0-alpha.19",
-    "react": "^16.6.0",
-    "react-dom": "^16.6.0",
     "sharp": "0.22"
   }
 }

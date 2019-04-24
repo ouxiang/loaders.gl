@@ -2,11 +2,10 @@ import React from 'react';
 
 import { AutoSizer } from 'react-virtualized';
 
-import ExampleTableOfContents from 'ocular-gatsby/src/components/layout/example-table-of-contents';
 import { MainExample } from 'ocular-gatsby/src/components/styled';
-import WithConfig from 'ocular-gatsby/components/src/layout/website-config';
+import WithConfig from 'ocular-gatsby/src/components/layout/website-config';
 
-import DemoRunner from '../src/components/example-runner';
+import ExampleRunner from '../src/components/example-runner';
 import EXAMPLES from '../src/components/examples';
 
 export default class ExampleTemplate extends React.Component {
@@ -27,7 +26,7 @@ export default class ExampleTemplate extends React.Component {
             <AutoSizer>
               {({ height, width }) =>
                   example && (
-                    <DemoRunner
+                    <ExampleRunner
                       height={height}
                       example={example}
                       sourceLink={

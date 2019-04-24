@@ -73,7 +73,8 @@ module.exports = {
      {
        title: 'Point Clouds & Meshes',
        path: 'examples/las',
-       image: 'images/example-gltf.jpg'
+       image: 'images/example-gltf.jpg',
+       componentUrl: resolve(__dirname, './templates/example-pointcloud.jsx')
      }
   ],
 
@@ -85,9 +86,10 @@ module.exports = {
     resolve: {
       modules: [resolve(__dirname, './node_modules')],
       alias: Object.assign({}, ALIASES, dependencyAliases, {
-        '@luma.gl/addons': `${__dirname}/node_modules/@luma.gl/addons/src`,
-        '@luma.gl/core': `${__dirname}/node_modules/@luma.gl/core/src`,
-        '@luma.gl/constants': `${__dirname}/node_modules/@luma.gl/constants/src`
+        // '@luma.gl/addons': `${__dirname}/node_modules/@luma.gl/addons/src`,
+        // '@luma.gl/core': `${__dirname}/node_modules/@luma.gl/core/src`,
+        // '@luma.gl/constants': `${__dirname}/node_modules/@luma.gl/constants/src`,
+        // '@luma.gl/webgl': `${__dirname}/node_modules/@luma.gl/webgl/src`
       })
     }
   }
