@@ -64,12 +64,9 @@ export default class AnimationLoop extends Component {
   }
 
   componentWillUnmount() {
-    const {example} = this.props;
-    const exampleApp = example.app;
-    if (exampleApp) {
-      exampleApp.stop(this.props);
-    }
-    window.cancelAnimationFrame(this.animationFrame);
+    const {animationLoop} = this.props;
+    animationLoop.stop(this.props);
+    // this._stopStats();
   }
 
   _showStats(animationLoop) {
@@ -118,6 +115,10 @@ export default class AnimationLoop extends Component {
     };
 
     this.animationFrame = window.requestAnimationFrame(updateStats);
+  }
+
+  _stopStats() {
+    window.cancelAnimationFrame(this.animationFrame);
   }
 
   render() {
