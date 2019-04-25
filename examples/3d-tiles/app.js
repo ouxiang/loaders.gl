@@ -22,7 +22,9 @@ export const MeshTile3DLoader = {
 
 registerLoaders(MeshTile3DLoader);
 
-const PNTS_URL = `./PointCloudNormals/PointCloudNormals.pnts`;
+const URL_PREFIX =
+  'https://raw.githubusercontent.com/uber-web/loaders.gl/master/modules/3d-tiles/test/data';
+const PNTS_URL = `${URL_PREFIX}/PointCloud/PointCloudNormals/pointCloudNormals.pnts`;
 
 const INITIAL_VIEW_STATE = {
   target: [0, 0, 0],

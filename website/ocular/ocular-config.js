@@ -67,24 +67,23 @@ module.exports = {
   EXAMPLES: [
      {
        title: 'Point Clouds & Meshes',
-       image: 'images/example-gltf.jpg',
-       componentUrl: resolve(__dirname, '../../examples/pointcloud/app.js'),
+       image: 'images/example-pointcloud.png',
+       componentUrl: resolve(__dirname, './examples/pointcloud/app.js'),
        path: 'examples/pointcloud'
      },
-     // {
-     //   title: '3D Tiles',
-     //   image: 'images/example-gltf.jpg',
-     //   componentUrl: resolve(__dirname, '../../examples/3d-tiles/app.js'),
-     //   path: 'examples/3d-tiles'
-     // },
+     {
+       title: '3D Tiles',
+       image: 'images/example-gltf.jpg',
+       componentUrl: resolve(__dirname, './examples/3d-tiles/app.js'),
+       path: 'examples/3d-tiles'
+     },
      {
        title: 'GLTF',
-       path: 'examples/gltf',
-       image: 'images/example-gltf.jpg'
+       image: 'images/example-gltf.jpg',
+       componentUrl: resolve(__dirname, './templates/example-gltf.jsx'),
+       path: 'examples/gltf'
      }
   ],
-
-  EXAMPLE_PAGE_URL: resolve(__dirname, './templates/example-n.jsx'),
 
   // Avoids duplicate conflicting inputs when importing from examples folders
   // Ocular adds this to gatsby's webpack config

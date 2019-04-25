@@ -8,11 +8,11 @@ import {PointCloudLayer} from '@deck.gl/layers';
 // import {LASLoader} from '@loaders.gl/las';
 // TODO fix LasWorkerLoader
 // import {LASWorkerLoader} from '@loaders.gl/las';
-import {PLYWorkerLoader} from '@loaders.gl/ply';
+import {PLYLoader} from '@loaders.gl/ply';
 import {load, registerLoaders} from '@loaders.gl/core';
 
 // Additional format support can be added here, see
-registerLoaders(PLYWorkerLoader);
+registerLoaders(PLYLoader);
 
 // Data source: kaarta.com
 // const LAZ_SAMPLE =

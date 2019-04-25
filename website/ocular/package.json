@@ -10,11 +10,11 @@
   "scripts": {
     "start": "yarn copy-examples && yarn clean && yarn develop",
     "clean": "rm -rf ./.cache ./public",
-    "copy-examples": "rm -rf examples ; find ../../examples --name node_modules -exec rm -r {} \\; ; cp -r ../../examples . ",
     "develop": "gatsby develop --port=8001",
-    "build": "gatsby build --prefix-paths",
+    "build": "yarn copy-examples && gatsby build --prefix-paths",
     "serve": "gatsby serve --prefix-paths",
-    "publish-docs": "yarn build && mkdir -p ../../docs && rm -rf ../../docs/*  && mv public/* ../../docs"
+    "publish-docs": "yarn build && mkdir -p ../../docs && rm -rf ../../docs/*  && mv public/* ../../docs",
+    "copy-examples": "rm -rf examples ; find ../../examples -name node_modules -exec rm -r {} \\; ; cp -r ../../examples . "
   },
   "dependencies": {
     "@deck.gl/core": "^7.0.2",
@@ -31,7 +31,7 @@
   "devDependencies": {
     "gatsby": "^2.3.0",
     "gatsby-plugin-styletron": "^3.0.5",
-    "ocular-gatsby": "1.0.0-alpha.19",
+    "ocular-gatsby": "1.0.0-alpha.21",
     "sharp": "0.22"
   }
 }
